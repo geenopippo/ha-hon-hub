@@ -1,0 +1,48 @@
+{
+  "entity": {
+    "sensor": {
+      "status": {
+        "default": "mdi:washing-machine",
+        "state": {"running": "mdi:play-circle", "paused": "mdi:pause-circle", "scheduled": "mdi:clock-start",
+                  "error": "mdi:alert-circle", "finished": "mdi:check-circle", "offline": "mdi:power-plug-off"}
+      },
+      "hob_status": {"default": "mdi:stove", "state": {"offline": "mdi:power-plug-off"}},
+      "program": {"default": "mdi:format-list-bulleted"},
+      "phase": {"default": "mdi:progress-clock"},
+      "remaining_time": {"default": "mdi:timer-sand"},
+      "end_time": {"default": "mdi:clock-end"},
+      "total_cycles": {"default": "mdi:counter"},
+      "spin_speed": {"default": "mdi:rotate-right"},
+      "dry_level": {"default": "mdi:tumble-dryer"},
+      "error_code": {"default": "mdi:alert-circle-outline"},
+      "tabs": {"default": "mdi:pill"},
+      "filter_cleaning": {"default": "mdi:air-filter"},
+      "drum_cleaning": {"default": "mdi:washing-machine-alert"},
+      "drawer_cleaning": {"default": "mdi:tray"},
+      "spray_arms_cleaning": {"default": "mdi:sprinkler-variant"},
+      "zone_power": {"default": "mdi:circle-slice-8"}
+    },
+    "binary_sensor": {
+      "remote_control": {"default": "mdi:remote", "state": {"off": "mdi:remote-off"}},
+      "salt": {"default": "mdi:shaker-outline"},
+      "rinse_aid": {"default": "mdi:shimmer"},
+      "detergent": {"default": "mdi:cup-water"},
+      "softener": {"default": "mdi:flower"},
+      "maintenance": {"default": "mdi:wrench-clock"}
+    },
+    "button": {
+      "start": {"default": "mdi:play"},
+      "pause": {"default": "mdi:pause"},
+      "resume": {"default": "mdi:play-pause"},
+      "stop": {"default": "mdi:stop"},
+      "reset_filter_cleaning": {"default": "mdi:restore"},
+      "reset_drum_cleaning": {"default": "mdi:restore"},
+      "reset_drawer_cleaning": {"default": "mdi:restore"},
+      "reset_spray_arms_cleaning": {"default": "mdi:restore"}
+    },
+    "select": {"program": {"default": "mdi:playlist-play"}},
+    "number": {"tabs": {"default": "mdi:pill"}},
+    "event": {"cycle": {"default": "mdi:bell-ring-outline"}}
+  },
+  "services": {"start_program": {"service": "mdi:play"}}
+}

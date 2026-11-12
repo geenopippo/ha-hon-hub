@@ -1,0 +1,22 @@
+start_program:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: hon_hub
+    program:
+      required: true
+      example: "Eco 40-60"
+      selector:
+        text:
+    options:
+      required: false
+      example: '{"temp": 40, "spinSpeed": 1000, "delayTime": 120}'
+      selector:
+        object:
+    validate_only:
+      required: false
+      default: false
+      selector:
+        boolean:

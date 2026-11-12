@@ -1,0 +1,1153 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Account hOn",
+        "description": "Inserisci l'email e la password che usi nell'app hOn. Home Assistant parla direttamente con il cloud hOn.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Account hOn",
+        "description": "L'accesso a hOn non è più valido: inserisci di nuovo email e password.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Email o password errate",
+      "cannot_connect": "Il cloud hOn non è raggiungibile",
+      "no_appliances": "Questo account hOn non ha elettrodomestici",
+      "unknown": "Risposta inattesa da hOn: controlla il registro"
+    },
+    "abort": {
+      "already_configured": "Questo account è già configurato",
+      "reauth_successful": "Accesso aggiornato"
+    }
+  },
+  "device": {
+    "washer_dryer": {
+      "name": "Lavasciuga"
+    },
+    "washing_machine": {
+      "name": "Lavatrice"
+    },
+    "tumble_dryer": {
+      "name": "Asciugatrice"
+    },
+    "dishwasher": {
+      "name": "Lavastoviglie"
+    },
+    "induction_hob": {
+      "name": "Piano a induzione"
+    },
+    "oven": {
+      "name": "Forno"
+    },
+    "hood": {
+      "name": "Cappa"
+    },
+    "fridge": {
+      "name": "Frigorifero"
+    },
+    "wine_cellar": {
+      "name": "Cantinetta"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Stato",
+        "state": {
+          "ready": "Pronta",
+          "running": "In funzione",
+          "paused": "In pausa",
+          "scheduled": "Programmata",
+          "error": "Errore",
+          "finished": "Finito",
+          "test": "Test",
+          "stopping": "In arresto",
+          "offline": "Non connessa"
+        }
+      },
+      "hob_status": {
+        "name": "Stato",
+        "state": {
+          "on": "Acceso",
+          "off": "Spento",
+          "offline": "Non connesso"
+        }
+      },
+      "program": {
+        "name": "Programma"
+      },
+      "phase": {
+        "name": "Fase",
+        "state": {
+          "washing": "Lavaggio",
+          "spin": "Centrifuga",
+          "rinse": "Risciacquo",
+          "drying": "Asciugatura",
+          "steam": "Vapore",
+          "weighting": "Pesatura",
+          "scheduled": "Programmato",
+          "tumbling": "Antipiega",
+          "refresh": "Rinfresca",
+          "heating": "Riscaldamento",
+          "prewash": "Prelavaggio",
+          "finished": "Finito",
+          "hot_rinse": "Risciacquo caldo",
+          "heat_stroke": "Riscaldamento",
+          "cooldown": "Raffreddamento"
+        }
+      },
+      "remaining_time": {
+        "name": "Tempo residuo"
+      },
+      "end_time": {
+        "name": "Fine prevista"
+      },
+      "cycle_water": {
+        "name": "Acqua del ciclo"
+      },
+      "cycle_energy": {
+        "name": "Energia del ciclo"
+      },
+      "total_cycles": {
+        "name": "Cicli totali",
+        "unit_of_measurement": "cicli"
+      },
+      "temperature": {
+        "name": "Temperatura impostata"
+      },
+      "spin_speed": {
+        "name": "Centrifuga impostata"
+      },
+      "dry_level": {
+        "name": "Asciugatura impostata",
+        "state": {
+          "no_dry": "Nessuna",
+          "iron_dry": "Pronto stiro",
+          "no_dry_iron": "Leggera",
+          "cupboard_dry": "Pronto armadio",
+          "extra_dry": "Extra asciutto",
+          "ready_to_wear": "Pronto da indossare"
+        }
+      },
+      "error_code": {
+        "name": "Codice errore"
+      },
+      "tabs": {
+        "name": "Pastiglie rimaste"
+      },
+      "zone_power": {
+        "name": "Zona {zone} potenza"
+      },
+      "filter_cleaning": {
+        "name": "Pulizia filtro: cicli rimanenti",
+        "unit_of_measurement": "cicli"
+      },
+      "drum_cleaning": {
+        "name": "Pulizia cestello: cicli rimanenti",
+        "unit_of_measurement": "cicli"
+      },
+      "drawer_cleaning": {
+        "name": "Pulizia cassetto detersivo: cicli rimanenti",
+        "unit_of_measurement": "cicli"
+      },
+      "spray_arms_cleaning": {
+        "name": "Pulizia bracci irroratori: cicli rimanenti",
+        "unit_of_measurement": "cicli"
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Connessione"
+      },
+      "remote_control": {
+        "name": "Controllo remoto"
+      },
+      "door": {
+        "name": "Porta"
+      },
+      "salt": {
+        "name": "Sale in esaurimento"
+      },
+      "rinse_aid": {
+        "name": "Brillantante in esaurimento"
+      },
+      "detergent": {
+        "name": "Detersivo in esaurimento"
+      },
+      "softener": {
+        "name": "Ammorbidente in esaurimento"
+      },
+      "key_lock": {
+        "name": "Blocco tasti"
+      },
+      "maintenance": {
+        "name": "Manutenzione da fare"
+      },
+      "zone_hot": {
+        "name": "Zona {zone} calore residuo"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "Avvia programma"
+      },
+      "pause": {
+        "name": "Pausa"
+      },
+      "resume": {
+        "name": "Riprendi"
+      },
+      "stop": {
+        "name": "Interrompi"
+      },
+      "reset_filter_cleaning": {
+        "name": "Azzera pulizia filtro"
+      },
+      "reset_drum_cleaning": {
+        "name": "Azzera pulizia cestello"
+      },
+      "reset_drawer_cleaning": {
+        "name": "Azzera pulizia cassetto detersivo"
+      },
+      "reset_spray_arms_cleaning": {
+        "name": "Azzera pulizia bracci irroratori"
+      }
+    },
+    "select": {
+      "program": {
+        "name": "Programma da avviare"
+      },
+      "option_temp": {
+        "name": "Opzione: Temperatura",
+        "state": {
+          "0": "Freddo",
+          "20": "20 °C",
+          "30": "30 °C",
+          "40": "40 °C",
+          "50": "50 °C",
+          "60": "60 °C",
+          "65": "65 °C",
+          "70": "70 °C",
+          "75": "75 °C",
+          "80": "80 °C",
+          "90": "90 °C"
+        }
+      },
+      "setting_temp": {
+        "name": "Temperatura",
+        "state": {
+          "0": "Freddo",
+          "20": "20 °C",
+          "30": "30 °C",
+          "40": "40 °C",
+          "50": "50 °C",
+          "60": "60 °C",
+          "65": "65 °C",
+          "70": "70 °C",
+          "75": "75 °C",
+          "80": "80 °C",
+          "90": "90 °C"
+        }
+      },
+      "option_spin_speed": {
+        "name": "Opzione: Centrifuga",
+        "state": {
+          "0": "No centrifuga",
+          "400": "400 giri",
+          "600": "600 giri",
+          "800": "800 giri",
+          "1000": "1000 giri",
+          "1200": "1200 giri",
+          "1400": "1400 giri",
+          "1500": "1500 giri",
+          "1600": "1600 giri"
+        }
+      },
+      "setting_spin_speed": {
+        "name": "Centrifuga",
+        "state": {
+          "0": "No centrifuga",
+          "400": "400 giri",
+          "600": "600 giri",
+          "800": "800 giri",
+          "1000": "1000 giri",
+          "1200": "1200 giri",
+          "1400": "1400 giri",
+          "1500": "1500 giri",
+          "1600": "1600 giri"
+        }
+      },
+      "option_dry_level": {
+        "name": "Opzione: Livello di asciugatura",
+        "state": {
+          "0": "Nessuna",
+          "1": "Pronto stiro",
+          "2": "Leggera",
+          "3": "Pronto armadio",
+          "4": "Extra asciutto",
+          "11": "Nessuna",
+          "12": "Pronto stiro",
+          "13": "Pronto armadio",
+          "14": "Pronto da indossare",
+          "15": "Extra asciutto"
+        }
+      },
+      "setting_dry_level": {
+        "name": "Livello di asciugatura",
+        "state": {
+          "0": "Nessuna",
+          "1": "Pronto stiro",
+          "2": "Leggera",
+          "3": "Pronto armadio",
+          "4": "Extra asciutto",
+          "11": "Nessuna",
+          "12": "Pronto stiro",
+          "13": "Pronto armadio",
+          "14": "Pronto da indossare",
+          "15": "Extra asciutto"
+        }
+      },
+      "option_dry_time": {
+        "name": "Opzione: Durata asciugatura"
+      },
+      "setting_dry_time": {
+        "name": "Durata asciugatura"
+      },
+      "option_dry_option": {
+        "name": "Opzione: Asciuga dopo il lavaggio"
+      },
+      "setting_dry_option": {
+        "name": "Asciuga dopo il lavaggio"
+      },
+      "option_dirty_level": {
+        "name": "Opzione: Livello di sporco",
+        "state": {
+          "1": "Poco",
+          "2": "Normale",
+          "3": "Molto"
+        }
+      },
+      "setting_dirty_level": {
+        "name": "Livello di sporco",
+        "state": {
+          "1": "Poco",
+          "2": "Normale",
+          "3": "Molto"
+        }
+      },
+      "option_steam_level": {
+        "name": "Opzione: Vapore",
+        "state": {
+          "0": "No",
+          "1": "Cotone",
+          "2": "Delicati",
+          "3": "Sintetici"
+        }
+      },
+      "setting_steam_level": {
+        "name": "Vapore",
+        "state": {
+          "0": "No",
+          "1": "Cotone",
+          "2": "Delicati",
+          "3": "Sintetici"
+        }
+      },
+      "option_delay_time": {
+        "name": "Opzione: Partenza ritardata"
+      },
+      "setting_delay_time": {
+        "name": "Partenza ritardata"
+      },
+      "option_extra_rinse_1": {
+        "name": "Opzione: Risciacquo extra 1"
+      },
+      "setting_extra_rinse_1": {
+        "name": "Risciacquo extra 1"
+      },
+      "option_extra_rinse_2": {
+        "name": "Opzione: Risciacquo extra 2"
+      },
+      "setting_extra_rinse_2": {
+        "name": "Risciacquo extra 2"
+      },
+      "option_extra_rinse_3": {
+        "name": "Opzione: Risciacquo extra 3"
+      },
+      "setting_extra_rinse_3": {
+        "name": "Risciacquo extra 3"
+      },
+      "option_acquaplus": {
+        "name": "Opzione: Acqua Plus"
+      },
+      "setting_acquaplus": {
+        "name": "Acqua Plus"
+      },
+      "option_good_night": {
+        "name": "Opzione: Good Night (silenzioso)"
+      },
+      "setting_good_night": {
+        "name": "Good Night (silenzioso)"
+      },
+      "option_prewash": {
+        "name": "Opzione: Prelavaggio"
+      },
+      "setting_prewash": {
+        "name": "Prelavaggio"
+      },
+      "option_hygiene": {
+        "name": "Opzione: Igiene"
+      },
+      "setting_hygiene": {
+        "name": "Igiene"
+      },
+      "option_anticrease": {
+        "name": "Opzione: Antipiega"
+      },
+      "setting_anticrease": {
+        "name": "Antipiega"
+      },
+      "option_auto_detergent": {
+        "name": "Opzione: Dosaggio automatico detersivo"
+      },
+      "setting_auto_detergent": {
+        "name": "Dosaggio automatico detersivo"
+      },
+      "option_auto_softener": {
+        "name": "Opzione: Dosaggio automatico ammorbidente"
+      },
+      "setting_auto_softener": {
+        "name": "Dosaggio automatico ammorbidente"
+      },
+      "option_water_hardness": {
+        "name": "Opzione: Durezza dell'acqua"
+      },
+      "setting_water_hardness": {
+        "name": "Durezza dell'acqua"
+      },
+      "option_extra_dry": {
+        "name": "Opzione: Extra asciutto"
+      },
+      "setting_extra_dry": {
+        "name": "Extra asciutto"
+      },
+      "option_open_door": {
+        "name": "Opzione: Apertura porta a fine ciclo"
+      },
+      "setting_open_door": {
+        "name": "Apertura porta a fine ciclo"
+      },
+      "option_half_load": {
+        "name": "Opzione: Mezzo carico"
+      },
+      "setting_half_load": {
+        "name": "Mezzo carico"
+      },
+      "option_eco_express": {
+        "name": "Opzione: Eco Express"
+      },
+      "setting_eco_express": {
+        "name": "Eco Express"
+      },
+      "option_three_in_one": {
+        "name": "Opzione: 3 in 1"
+      },
+      "setting_three_in_one": {
+        "name": "3 in 1"
+      },
+      "option_add_dish": {
+        "name": "Opzione: Aggiungi stoviglie"
+      },
+      "setting_add_dish": {
+        "name": "Aggiungi stoviglie"
+      },
+      "option_tab_status": {
+        "name": "Opzione: Detersivo in pastiglie"
+      },
+      "setting_tab_status": {
+        "name": "Detersivo in pastiglie"
+      },
+      "option_intensive": {
+        "name": "Opzione: Intensivo"
+      },
+      "setting_intensive": {
+        "name": "Intensivo"
+      },
+      "option_diverter_level": {
+        "name": "Opzione: Cesto",
+        "state": {
+          "0": "Entrambi",
+          "1": "Superiore",
+          "2": "Inferiore"
+        }
+      },
+      "setting_diverter_level": {
+        "name": "Cesto",
+        "state": {
+          "0": "Entrambi",
+          "1": "Superiore",
+          "2": "Inferiore"
+        }
+      },
+      "option_light": {
+        "name": "Opzione: Luce interna"
+      },
+      "setting_light": {
+        "name": "Luce interna"
+      },
+      "option_buzzer_disabled": {
+        "name": "Opzione: Disattiva avviso di fine ciclo"
+      },
+      "setting_buzzer_disabled": {
+        "name": "Disattiva avviso di fine ciclo"
+      },
+      "option_last_cycle_memo": {
+        "name": "Opzione: Memo ultimo ciclo"
+      },
+      "setting_last_cycle_memo": {
+        "name": "Memo ultimo ciclo"
+      },
+      "option_rinse_aid_level": {
+        "name": "Opzione: Livello brillantante"
+      },
+      "setting_rinse_aid_level": {
+        "name": "Livello brillantante"
+      },
+      "option_power_management": {
+        "name": "Opzione: Limite di potenza"
+      },
+      "setting_power_management": {
+        "name": "Limite di potenza"
+      },
+      "option_night_wash": {
+        "name": "Opzione: Lavaggio notturno"
+      },
+      "setting_night_wash": {
+        "name": "Lavaggio notturno"
+      },
+      "option_energy_saving": {
+        "name": "Opzione: Risparmio energetico"
+      },
+      "setting_energy_saving": {
+        "name": "Risparmio energetico"
+      },
+      "option_sterilization": {
+        "name": "Opzione: Sterilizzazione"
+      },
+      "setting_sterilization": {
+        "name": "Sterilizzazione"
+      },
+      "option_rinse_iterations": {
+        "name": "Opzione: Numero risciacqui"
+      },
+      "setting_rinse_iterations": {
+        "name": "Numero risciacqui"
+      },
+      "option_main_wash_time": {
+        "name": "Opzione: Durata lavaggio"
+      },
+      "setting_main_wash_time": {
+        "name": "Durata lavaggio"
+      },
+      "option_key_lock": {
+        "name": "Opzione: Blocco tasti"
+      },
+      "setting_key_lock": {
+        "name": "Blocco tasti"
+      },
+      "option_zone_map": {
+        "name": "Opzione: Zona"
+      },
+      "setting_zone_map": {
+        "name": "Zona"
+      },
+      "option_auto_dose": {
+        "name": "Opzione: Dosaggio automatico"
+      },
+      "setting_auto_dose": {
+        "name": "Dosaggio automatico"
+      }
+    },
+    "number": {
+      "tabs": {
+        "name": "Imposta pastiglie"
+      },
+      "option_temp": {
+        "name": "Opzione: Temperatura"
+      },
+      "setting_temp": {
+        "name": "Temperatura"
+      },
+      "option_spin_speed": {
+        "name": "Opzione: Centrifuga"
+      },
+      "setting_spin_speed": {
+        "name": "Centrifuga"
+      },
+      "option_dry_level": {
+        "name": "Opzione: Livello di asciugatura"
+      },
+      "setting_dry_level": {
+        "name": "Livello di asciugatura"
+      },
+      "option_dry_time": {
+        "name": "Opzione: Durata asciugatura"
+      },
+      "setting_dry_time": {
+        "name": "Durata asciugatura"
+      },
+      "option_dry_option": {
+        "name": "Opzione: Asciuga dopo il lavaggio"
+      },
+      "setting_dry_option": {
+        "name": "Asciuga dopo il lavaggio"
+      },
+      "option_dirty_level": {
+        "name": "Opzione: Livello di sporco"
+      },
+      "setting_dirty_level": {
+        "name": "Livello di sporco"
+      },
+      "option_steam_level": {
+        "name": "Opzione: Vapore"
+      },
+      "setting_steam_level": {
+        "name": "Vapore"
+      },
+      "option_delay_time": {
+        "name": "Opzione: Partenza ritardata"
+      },
+      "setting_delay_time": {
+        "name": "Partenza ritardata"
+      },
+      "option_extra_rinse_1": {
+        "name": "Opzione: Risciacquo extra 1"
+      },
+      "setting_extra_rinse_1": {
+        "name": "Risciacquo extra 1"
+      },
+      "option_extra_rinse_2": {
+        "name": "Opzione: Risciacquo extra 2"
+      },
+      "setting_extra_rinse_2": {
+        "name": "Risciacquo extra 2"
+      },
+      "option_extra_rinse_3": {
+        "name": "Opzione: Risciacquo extra 3"
+      },
+      "setting_extra_rinse_3": {
+        "name": "Risciacquo extra 3"
+      },
+      "option_acquaplus": {
+        "name": "Opzione: Acqua Plus"
+      },
+      "setting_acquaplus": {
+        "name": "Acqua Plus"
+      },
+      "option_good_night": {
+        "name": "Opzione: Good Night (silenzioso)"
+      },
+      "setting_good_night": {
+        "name": "Good Night (silenzioso)"
+      },
+      "option_prewash": {
+        "name": "Opzione: Prelavaggio"
+      },
+      "setting_prewash": {
+        "name": "Prelavaggio"
+      },
+      "option_hygiene": {
+        "name": "Opzione: Igiene"
+      },
+      "setting_hygiene": {
+        "name": "Igiene"
+      },
+      "option_anticrease": {
+        "name": "Opzione: Antipiega"
+      },
+      "setting_anticrease": {
+        "name": "Antipiega"
+      },
+      "option_auto_detergent": {
+        "name": "Opzione: Dosaggio automatico detersivo"
+      },
+      "setting_auto_detergent": {
+        "name": "Dosaggio automatico detersivo"
+      },
+      "option_auto_softener": {
+        "name": "Opzione: Dosaggio automatico ammorbidente"
+      },
+      "setting_auto_softener": {
+        "name": "Dosaggio automatico ammorbidente"
+      },
+      "option_water_hardness": {
+        "name": "Opzione: Durezza dell'acqua"
+      },
+      "setting_water_hardness": {
+        "name": "Durezza dell'acqua"
+      },
+      "option_extra_dry": {
+        "name": "Opzione: Extra asciutto"
+      },
+      "setting_extra_dry": {
+        "name": "Extra asciutto"
+      },
+      "option_open_door": {
+        "name": "Opzione: Apertura porta a fine ciclo"
+      },
+      "setting_open_door": {
+        "name": "Apertura porta a fine ciclo"
+      },
+      "option_half_load": {
+        "name": "Opzione: Mezzo carico"
+      },
+      "setting_half_load": {
+        "name": "Mezzo carico"
+      },
+      "option_eco_express": {
+        "name": "Opzione: Eco Express"
+      },
+      "setting_eco_express": {
+        "name": "Eco Express"
+      },
+      "option_three_in_one": {
+        "name": "Opzione: 3 in 1"
+      },
+      "setting_three_in_one": {
+        "name": "3 in 1"
+      },
+      "option_add_dish": {
+        "name": "Opzione: Aggiungi stoviglie"
+      },
+      "setting_add_dish": {
+        "name": "Aggiungi stoviglie"
+      },
+      "option_tab_status": {
+        "name": "Opzione: Detersivo in pastiglie"
+      },
+      "setting_tab_status": {
+        "name": "Detersivo in pastiglie"
+      },
+      "option_intensive": {
+        "name": "Opzione: Intensivo"
+      },
+      "setting_intensive": {
+        "name": "Intensivo"
+      },
+      "option_diverter_level": {
+        "name": "Opzione: Cesto"
+      },
+      "setting_diverter_level": {
+        "name": "Cesto"
+      },
+      "option_light": {
+        "name": "Opzione: Luce interna"
+      },
+      "setting_light": {
+        "name": "Luce interna"
+      },
+      "option_buzzer_disabled": {
+        "name": "Opzione: Disattiva avviso di fine ciclo"
+      },
+      "setting_buzzer_disabled": {
+        "name": "Disattiva avviso di fine ciclo"
+      },
+      "option_last_cycle_memo": {
+        "name": "Opzione: Memo ultimo ciclo"
+      },
+      "setting_last_cycle_memo": {
+        "name": "Memo ultimo ciclo"
+      },
+      "option_rinse_aid_level": {
+        "name": "Opzione: Livello brillantante"
+      },
+      "setting_rinse_aid_level": {
+        "name": "Livello brillantante"
+      },
+      "option_power_management": {
+        "name": "Opzione: Limite di potenza"
+      },
+      "setting_power_management": {
+        "name": "Limite di potenza"
+      },
+      "option_night_wash": {
+        "name": "Opzione: Lavaggio notturno"
+      },
+      "setting_night_wash": {
+        "name": "Lavaggio notturno"
+      },
+      "option_energy_saving": {
+        "name": "Opzione: Risparmio energetico"
+      },
+      "setting_energy_saving": {
+        "name": "Risparmio energetico"
+      },
+      "option_sterilization": {
+        "name": "Opzione: Sterilizzazione"
+      },
+      "setting_sterilization": {
+        "name": "Sterilizzazione"
+      },
+      "option_rinse_iterations": {
+        "name": "Opzione: Numero risciacqui"
+      },
+      "setting_rinse_iterations": {
+        "name": "Numero risciacqui"
+      },
+      "option_main_wash_time": {
+        "name": "Opzione: Durata lavaggio"
+      },
+      "setting_main_wash_time": {
+        "name": "Durata lavaggio"
+      },
+      "option_key_lock": {
+        "name": "Opzione: Blocco tasti"
+      },
+      "setting_key_lock": {
+        "name": "Blocco tasti"
+      },
+      "option_zone_map": {
+        "name": "Opzione: Zona"
+      },
+      "setting_zone_map": {
+        "name": "Zona"
+      },
+      "option_auto_dose": {
+        "name": "Opzione: Dosaggio automatico"
+      },
+      "setting_auto_dose": {
+        "name": "Dosaggio automatico"
+      }
+    },
+    "event": {
+      "cycle": {
+        "name": "Ciclo",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "started": "Avviato",
+              "paused": "In pausa",
+              "resumed": "Ripreso",
+              "finished": "Finito",
+              "error": "Errore",
+              "scheduled": "Programmato"
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "option_temp": {
+        "name": "Opzione: Temperatura"
+      },
+      "setting_temp": {
+        "name": "Temperatura"
+      },
+      "option_spin_speed": {
+        "name": "Opzione: Centrifuga"
+      },
+      "setting_spin_speed": {
+        "name": "Centrifuga"
+      },
+      "option_dry_level": {
+        "name": "Opzione: Livello di asciugatura"
+      },
+      "setting_dry_level": {
+        "name": "Livello di asciugatura"
+      },
+      "option_dry_time": {
+        "name": "Opzione: Durata asciugatura"
+      },
+      "setting_dry_time": {
+        "name": "Durata asciugatura"
+      },
+      "option_dry_option": {
+        "name": "Opzione: Asciuga dopo il lavaggio"
+      },
+      "setting_dry_option": {
+        "name": "Asciuga dopo il lavaggio"
+      },
+      "option_dirty_level": {
+        "name": "Opzione: Livello di sporco"
+      },
+      "setting_dirty_level": {
+        "name": "Livello di sporco"
+      },
+      "option_steam_level": {
+        "name": "Opzione: Vapore"
+      },
+      "setting_steam_level": {
+        "name": "Vapore"
+      },
+      "option_delay_time": {
+        "name": "Opzione: Partenza ritardata"
+      },
+      "setting_delay_time": {
+        "name": "Partenza ritardata"
+      },
+      "option_extra_rinse_1": {
+        "name": "Opzione: Risciacquo extra 1"
+      },
+      "setting_extra_rinse_1": {
+        "name": "Risciacquo extra 1"
+      },
+      "option_extra_rinse_2": {
+        "name": "Opzione: Risciacquo extra 2"
+      },
+      "setting_extra_rinse_2": {
+        "name": "Risciacquo extra 2"
+      },
+      "option_extra_rinse_3": {
+        "name": "Opzione: Risciacquo extra 3"
+      },
+      "setting_extra_rinse_3": {
+        "name": "Risciacquo extra 3"
+      },
+      "option_acquaplus": {
+        "name": "Opzione: Acqua Plus"
+      },
+      "setting_acquaplus": {
+        "name": "Acqua Plus"
+      },
+      "option_good_night": {
+        "name": "Opzione: Good Night (silenzioso)"
+      },
+      "setting_good_night": {
+        "name": "Good Night (silenzioso)"
+      },
+      "option_prewash": {
+        "name": "Opzione: Prelavaggio"
+      },
+      "setting_prewash": {
+        "name": "Prelavaggio"
+      },
+      "option_hygiene": {
+        "name": "Opzione: Igiene"
+      },
+      "setting_hygiene": {
+        "name": "Igiene"
+      },
+      "option_anticrease": {
+        "name": "Opzione: Antipiega"
+      },
+      "setting_anticrease": {
+        "name": "Antipiega"
+      },
+      "option_auto_detergent": {
+        "name": "Opzione: Dosaggio automatico detersivo"
+      },
+      "setting_auto_detergent": {
+        "name": "Dosaggio automatico detersivo"
+      },
+      "option_auto_softener": {
+        "name": "Opzione: Dosaggio automatico ammorbidente"
+      },
+      "setting_auto_softener": {
+        "name": "Dosaggio automatico ammorbidente"
+      },
+      "option_water_hardness": {
+        "name": "Opzione: Durezza dell'acqua"
+      },
+      "setting_water_hardness": {
+        "name": "Durezza dell'acqua"
+      },
+      "option_extra_dry": {
+        "name": "Opzione: Extra asciutto"
+      },
+      "setting_extra_dry": {
+        "name": "Extra asciutto"
+      },
+      "option_open_door": {
+        "name": "Opzione: Apertura porta a fine ciclo"
+      },
+      "setting_open_door": {
+        "name": "Apertura porta a fine ciclo"
+      },
+      "option_half_load": {
+        "name": "Opzione: Mezzo carico"
+      },
+      "setting_half_load": {
+        "name": "Mezzo carico"
+      },
+      "option_eco_express": {
+        "name": "Opzione: Eco Express"
+      },
+      "setting_eco_express": {
+        "name": "Eco Express"
+      },
+      "option_three_in_one": {
+        "name": "Opzione: 3 in 1"
+      },
+      "setting_three_in_one": {
+        "name": "3 in 1"
+      },
+      "option_add_dish": {
+        "name": "Opzione: Aggiungi stoviglie"
+      },
+      "setting_add_dish": {
+        "name": "Aggiungi stoviglie"
+      },
+      "option_tab_status": {
+        "name": "Opzione: Detersivo in pastiglie"
+      },
+      "setting_tab_status": {
+        "name": "Detersivo in pastiglie"
+      },
+      "option_intensive": {
+        "name": "Opzione: Intensivo"
+      },
+      "setting_intensive": {
+        "name": "Intensivo"
+      },
+      "option_diverter_level": {
+        "name": "Opzione: Cesto"
+      },
+      "setting_diverter_level": {
+        "name": "Cesto"
+      },
+      "option_light": {
+        "name": "Opzione: Luce interna"
+      },
+      "setting_light": {
+        "name": "Luce interna"
+      },
+      "option_buzzer_disabled": {
+        "name": "Opzione: Disattiva avviso di fine ciclo"
+      },
+      "setting_buzzer_disabled": {
+        "name": "Disattiva avviso di fine ciclo"
+      },
+      "option_last_cycle_memo": {
+        "name": "Opzione: Memo ultimo ciclo"
+      },
+      "setting_last_cycle_memo": {
+        "name": "Memo ultimo ciclo"
+      },
+      "option_rinse_aid_level": {
+        "name": "Opzione: Livello brillantante"
+      },
+      "setting_rinse_aid_level": {
+        "name": "Livello brillantante"
+      },
+      "option_power_management": {
+        "name": "Opzione: Limite di potenza"
+      },
+      "setting_power_management": {
+        "name": "Limite di potenza"
+      },
+      "option_night_wash": {
+        "name": "Opzione: Lavaggio notturno"
+      },
+      "setting_night_wash": {
+        "name": "Lavaggio notturno"
+      },
+      "option_energy_saving": {
+        "name": "Opzione: Risparmio energetico"
+      },
+      "setting_energy_saving": {
+        "name": "Risparmio energetico"
+      },
+      "option_sterilization": {
+        "name": "Opzione: Sterilizzazione"
+      },
+      "setting_sterilization": {
+        "name": "Sterilizzazione"
+      },
+      "option_rinse_iterations": {
+        "name": "Opzione: Numero risciacqui"
+      },
+      "setting_rinse_iterations": {
+        "name": "Numero risciacqui"
+      },
+      "option_main_wash_time": {
+        "name": "Opzione: Durata lavaggio"
+      },
+      "setting_main_wash_time": {
+        "name": "Durata lavaggio"
+      },
+      "option_key_lock": {
+        "name": "Opzione: Blocco tasti"
+      },
+      "setting_key_lock": {
+        "name": "Blocco tasti"
+      },
+      "option_zone_map": {
+        "name": "Opzione: Zona"
+      },
+      "setting_zone_map": {
+        "name": "Zona"
+      },
+      "option_auto_dose": {
+        "name": "Opzione: Dosaggio automatico"
+      },
+      "setting_auto_dose": {
+        "name": "Dosaggio automatico"
+      }
+    }
+  },
+  "exceptions": {
+    "offline": {
+      "message": "L'elettrodomestico non è connesso: accendilo e riprova."
+    },
+    "remote_control_off": {
+      "message": "Il controllo remoto è disattivato sulla macchina: attivalo dal pannello e riprova."
+    },
+    "invalid_auth": {
+      "message": "L'accesso a hOn non è più valido: inserisci di nuovo email e password."
+    },
+    "cannot_connect": {
+      "message": "Il cloud hOn non è raggiungibile."
+    },
+    "command_rejected": {
+      "message": "hOn ha rifiutato il comando."
+    },
+    "cloud_error": {
+      "message": "Errore di hOn: {error}"
+    },
+    "invalid_option": {
+      "message": "Non valido: {error}"
+    },
+    "no_program": {
+      "message": "Scegli prima il programma in \"Programma da avviare\"."
+    },
+    "no_device": {
+      "message": "Non è un elettrodomestico di hOn Hub, oppure l'integrazione non è caricata."
+    },
+    "program_not_found": {
+      "message": "Programma \"{program}\" non trovato su questo elettrodomestico."
+    }
+  },
+  "services": {
+    "start_program": {
+      "name": "Avvia programma",
+      "description": "Avvia un programma su un elettrodomestico hOn, con le opzioni facoltative. Le opzioni non indicate restano quelle predefinite del programma.",
+      "fields": {
+        "device_id": {
+          "name": "Elettrodomestico",
+          "description": "L'elettrodomestico da avviare."
+        },
+        "program": {
+          "name": "Programma",
+          "description": "Nome come in \"Programma da avviare\" (per esempio Eco 40-60), codice (eco_40_60) o chiave (PROGRAMS.X.Y)."
+        },
+        "options": {
+          "name": "Opzioni",
+          "description": "Opzioni del programma con il loro nome hOn, per esempio temp, spinSpeed, delayTime (minuti), dryOption, dryLevel."
+        },
+        "validate_only": {
+          "name": "Solo verifica",
+          "description": "Prepara e controlla il comando senza inviarlo: la risposta mostra che cosa verrebbe inviato."
+        }
+      }
+    }
+  }
+}
