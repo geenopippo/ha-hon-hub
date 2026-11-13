@@ -246,6 +246,23 @@ def test_realtime_reconnects_with_fresh_tokens(monkeypatch):
     run(go())
 
 
+def test_realtime_is_not_up_if_every_subscription_is_refused(monkeypatch):
+    monkeypatch.setattr(realtime, "BACKOFF_MIN", 0.05)
+
+    async def go():
+        async with Env() as e:
+            apps = await e.client.appliances()
+            e.cloud.refuse_subscriptions = True
+            lis = Listener(e, apps)
+            lis.rt.start()
+            assert await wait_for(lambda: "refused" in lis.rt.last_error)
+            assert not lis.rt.connected and lis.channel == []
+            e.cloud.refuse_subscriptions = False             # the cloud accepts again: the listener recovers alone
+            assert await wait_for(lambda: lis.rt.connected)
+            await lis.rt.stop()
+    run(go())
+
+
 def test_realtime_keeps_pinging_while_the_server_talks(monkeypatch):
     monkeypatch.setattr(realtime, "PING_EVERY", 0.2)
 

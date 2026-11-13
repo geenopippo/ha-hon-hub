@@ -6,7 +6,8 @@ dell'app ufficiale e porta in Home Assistant programmi, opzioni, impostazioni e 
 
 *English summary [below](#english).*
 
-Provata su Home Assistant 2026.10 con lavasciuga, lavastoviglie e piano a induzione Candy.
+Sviluppata su Home Assistant 2026.10 per una lavasciuga, una lavastoviglie e un piano a induzione Candy; i comandi
+che costruisce sono stati confrontati con quelli inviati dall'app ufficiale.
 Nessuna libreria da installare: l'integrazione usa solo ciò che Home Assistant ha già.
 
 ## Cosa fa
@@ -22,7 +23,8 @@ Nessuna libreria da installare: l'integrazione usa solo ciò che Home Assistant 
   (pulizia cesto, anticalcare, check-up) sono nell'elenco dei programmi.
 - **Impostazioni della macchina**: durezza dell'acqua, livello brillantante, luce interna, avviso di fine ciclo,
   limite di potenza del piano.
-- **Piano a induzione**: potenza e calore residuo di ogni zona, blocco tasti.
+- **Piano a induzione**: potenza e calore residuo di ogni zona, blocco tasti, limite di potenza
+  (le ricette non si possono ancora avviare da qui).
 - **Evento di ciclo** (avviato, in pausa, ripreso, finito, errore) per le automazioni.
 - **Diagnostica** scaricabile, senza dati dell'account né indirizzi delle macchine.
 
@@ -127,8 +129,9 @@ Install it as a HACS custom repository (`https://github.com/geenopippo/ha-hon-hu
 and password of the hOn app. Commands need the machine online with remote control enabled on its panel;
 hOn appliances have no local API, so Internet access is required.
 
-Tested with a Candy washer dryer, dishwasher and induction hob on Home Assistant 2026.10. Other hOn appliance
-types show up with the basic entities only.
+Developed on Home Assistant 2026.10 for a Candy washer dryer, dishwasher and induction hob; the commands it
+builds were compared with the ones sent by the official app. Hob recipes cannot be started yet. Other hOn
+appliance types show up with the basic entities only.
 
 Not affiliated with Haier, Candy or Hoover. Thanks to [pyhOn](https://github.com/Andre0512/pyhOn) and
 [gvigroux/hon](https://github.com/gvigroux/hon), which documented much of the hOn cloud. MIT license.

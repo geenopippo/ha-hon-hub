@@ -246,6 +246,7 @@ class HonRealtime:
         await ws.send_bytes(connect_packet(f"{self._client.mobile_id}_{secrets.token_hex(8)}"))
         topics = list(self._topics)
         pending: dict[int, list[str]] = {}
+        granted = 0
         last_rx = last_tx = time.time()
         while True:
             # the keep-alive counts what WE send: ping even while the server keeps talking
@@ -279,10 +280,14 @@ class HonRealtime:
                 elif kind == SUBACK:
                     asked = pending.pop(struct.unpack("!H", body[:2])[0], [])
                     refused = [t for t, code in zip(asked, body[2:]) if code & 0x80]
+                    granted += len(asked) - len(refused)
                     if refused:
-                        _LOGGER.warning("hOn real-time channel: %s subscriptions refused", len(refused))
+                        _LOGGER.debug("hOn real-time channel: %s subscriptions refused", len(refused))
                     if not pending:
-                        _LOGGER.debug("hOn real-time channel up, %s topics", len(topics))
+                        if not granted:
+                            # connected but deaf: better to say the channel is down, so the polling stays fast
+                            raise HonError("every subscription was refused")
+                        _LOGGER.debug("hOn real-time channel up, %s of %s topics", granted, len(topics))
                         self._channel(True)
                 elif kind == PUBLISH:
                     topic, payload, qos, packet_id = parse_publish(flags, body)
