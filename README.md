@@ -104,7 +104,8 @@ actions:
 ```
 python -m venv .venv && .venv/bin/pip install aiohttp pytest
 .venv/bin/python -m pytest -q          # client, canale in tempo reale, stato e comandi su un cloud finto
-python tests/fake_cloud.py             # cloud hOn finto per provare un Home Assistant vero (vedi tests/e2e_ha.py)
+tests/ha_test_env.sh                   # cloud hOn finto + Home Assistant di prova in Docker
+.venv/bin/python tests/e2e_ha.py setup && (cd tests && ../.venv/bin/python e2e_scenario.py)   # scenario completo
 python scripts/translations.py         # rigenera translations/en.json e it.json
 ```
 

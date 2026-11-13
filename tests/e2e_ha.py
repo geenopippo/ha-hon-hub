@@ -1,11 +1,10 @@
 """Helpers to drive a throw-away Home Assistant over its API (end-to-end checks against the fake cloud).
 
 Not collected by pytest. Typical use:
-    python tests/fake_cloud.py --port 8765 &
-    docker run -d --name ha-hon-test --network host -e HON_HUB_API_URL=http://127.0.0.1:8765 \
-        -e HON_HUB_MQTT_URL=ws://127.0.0.1:8765/mqtt -v $PWD/.ha-test/config:/config \
-        -v $PWD/custom_components:/config/custom_components:ro ghcr.io/home-assistant/home-assistant:stable
-    python tests/e2e_ha.py setup
+    tests/ha_test_env.sh                 # fake cloud + fresh Home Assistant container
+    python tests/e2e_ha.py setup         # onboarding in Italian + the integration with the fake account
+    (cd tests && python e2e_scenario.py) # the whole scenario
+    tests/ha_test_env.sh stop
 """
 from __future__ import annotations
 
