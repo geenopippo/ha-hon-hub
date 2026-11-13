@@ -502,6 +502,39 @@ def test_a_program_started_from_here_is_named_before_the_cloud_says_so():
     assert a.program_name == iot["name"]
 
 
+def test_a_cloud_answer_without_the_new_cycle_does_not_take_the_name_away():
+    """Seconds after a start the cloud may answer with no activity yet: the name given here stays, for a while."""
+    a = appliance("wd_209")
+    iot = next(p for p in a.programs if p["id"].startswith("iot_") and p["prCode"])
+    running = {"prCode": str(iot["prCode"]), "prPosition": str(iot["fixed"].get("prPosition")), "machMode": "2"}
+    shadow = {"shadow": {"parameters": {k: {"parNewVal": v} for k, v in running.items()}}}
+    a.note_started(iot)
+    a.apply_context({**shadow, "activity": {}})
+    assert a.program_name == iot["name"] and a.raw()["hon_activity_program"] == iot["id"]
+    a.apply_context({**shadow, "activity": {"attributes": {"prCode": running["prCode"]}}})      # still no program name
+    assert a.program_name == iot["name"]
+    # the cloud names the cycle: its version wins from then on, also when it is empty again
+    other = next(p for p in a.programs if p is not iot and str(p.get("prCode")) == running["prCode"])
+    a.apply_context({**shadow, "activity": {"attributes": {"prCode": running["prCode"], "programName": other["key"]}}})
+    assert a.current_program is other
+    a.apply_context({**shadow, "activity": {}})
+    assert a.activity == {}
+    # and a start of long ago is forgotten
+    a.note_started(iot)
+    a._started = (time.time() - 3600, a._started[1])
+    a.apply_context({**shadow, "activity": {}})
+    assert a.activity == {} and a.raw()["hon_activity_program"] is None
+
+
+def test_raw_parameters_tell_when_they_were_read():
+    a = appliance("dw_12658")
+    a.context_at = 0.0
+    assert a.raw()["hon_read_at"] is None
+    a.apply_context(json.loads((FIX / "dw_12658" / "attributes.json").read_text()))
+    read_at = a.raw()["hon_read_at"]
+    assert read_at.endswith("+00:00") and abs(time.time() - __import__("datetime").datetime.fromisoformat(read_at).timestamp()) < 5
+
+
 def test_programs_that_only_start_from_the_machine_are_not_offered():
     a = appliance("dw_12658")
     local = a.programs[0]

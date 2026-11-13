@@ -210,6 +210,20 @@ async def main():
         await push("DW", {"remainingTimeMM": "77", "machMode": "2"})
         await expect(f"sensor.{DW}_tempo_residuo", "77", 3)
         ok("channel reconnected by itself and pushing again")
+        await ha.cloud("/_test/outage", {"on": True})
+        for _ in range(6):                       # a refresh request can be put off by the cool-down of the previous one
+            await ha.call("homeassistant.update_entity", {"entity_id": f"sensor.{DW}_stato"})
+            await asyncio.sleep(5)
+            log = subprocess.run(["docker", "logs", "ha-hon-test"], capture_output=True, text=True)
+            if "hOn cloud not answering, keeping the last reading" in log.stdout + log.stderr:
+                break
+        else:
+            raise AssertionError("no reading was attempted while the cloud was down")
+        assert await ha.state(f"sensor.{DW}_tempo_residuo") == "77" and await ha.state(f"sensor.{WD}_stato") != "unavailable"
+        await push("DW", {"remainingTimeMM": "76"})
+        await expect(f"sensor.{DW}_tempo_residuo", "76", 3)
+        await ha.cloud("/_test/outage", {"on": False})
+        ok("cloud not answering: the entities keep the last reading and the channel keeps updating them")
 
         print("11. diagnostics, reload")
         entry = next(e for e in await ha.get("/api/config/config_entries/entry") if e["domain"] == "hon_hub")

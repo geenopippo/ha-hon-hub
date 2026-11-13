@@ -13,6 +13,8 @@ SLOW_TTL = 1800            # maintenance counters and statistics
 COMMANDS_TTL = 24 * 3600   # program definitions and appliance list
 I18N_TTL = 7 * 86400       # program names downloaded from hOn
 PENDING_TTL = 90           # settings just sent: the cloud reports them with some delay
+STALE_GRACE = 900          # the last reading stays good this long while the cloud does not answer
+STARTED_TTL = 120          # a start sent from here names the cycle until the cloud does, for this long at most
 
 # appliance types
 WASHING = ("WM", "WD", "TD")           # drum machines: same phase table

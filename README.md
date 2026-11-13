@@ -95,6 +95,11 @@ actions:
   i comandi no.
 - Email e password restano in Home Assistant, come per ogni integrazione; la password viene inviata a hOn solo
   al primo accesso e quando la sessione scade.
+- Se il cloud hOn non risponde per qualche minuto le entità tengono l'ultimo valore: diventano *non disponibili*
+  solo dopo un quarto d'ora di silenzio. Così un singhiozzo della rete non fa scattare le automazioni.
+- Per i modelli che hanno bisogno dei codici di hOn c'è il sensore diagnostico **Parametri grezzi** (disattivato
+  di serie): ha come attributi tutti i parametri che la macchina riporta, più `hon_connected`,
+  `hon_activity_program`, `hon_last_program` e `hon_read_at` (l'ora dell'ultima lettura dal cloud).
 - Se qualcosa non torna: pagina del dispositivo → **Scarica la diagnostica**. Per un registro dettagliato:
 
   ```yaml
@@ -129,6 +134,8 @@ requirements to install.
 - Maintenance counters with reset buttons, salt and rinse aid, tablets left; machine settings.
 - Induction hobs: power and residual heat per zone.
 - A cycle event entity (started, paused, resumed, finished, error) for automations; downloadable diagnostics.
+- A disabled-by-default *Raw parameters* diagnostic sensor with every hOn parameter as an attribute, for templates.
+  Entities keep their last value through short cloud outages (they turn unavailable after 15 minutes).
 
 Install it as a HACS custom repository (`https://github.com/geenopippo/ha-hon-hub`, type *Integration*) or copy
 `custom_components/hon_hub` into your `custom_components` folder, restart, then add *hOn Hub* with the email

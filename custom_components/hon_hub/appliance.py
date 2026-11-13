@@ -5,11 +5,12 @@ No Home Assistant imports: this module is tested standalone.
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from . import model
 from .const import (ACTIVE_STATES, CYCLE_TYPES, DRY_LEVELS, HOB, LEVELS, MACH_MODE, MAINTENANCE, PENDING_TTL,
-                    PHASE_DISH, PHASE_DRYER, PHASE_WASH, RESETTABLE, WASHING)
+                    PHASE_DISH, PHASE_DRYER, PHASE_WASH, RESETTABLE, STARTED_TTL, WASHING)
 
 
 def to_int(value: Any, default: int | None = None) -> int | None:
@@ -71,6 +72,7 @@ class Appliance:
         self._base: dict[str, str] = {}      # shadow read with REST + real-time updates
         self._live_at: dict[str, float] = {}
         self._presence_at = 0.0
+        self._started: tuple[float, dict] | None = None    # start sent from here: when, and the activity it stands for
         self._pending: dict[str, tuple[str, float]] = {}   # settings just sent: value and when, until confirmed
         self._end_key: tuple | None = None
         self.seen: set[str] = set()          # every parameter name ever received: it decides which entities exist
@@ -145,7 +147,15 @@ class Appliance:
         event = ((ctx.get("lastConnEvent") or {}).get("category") or "").upper()
         if event and self._presence_at <= requested_at:
             self.connected = event != "DISCONNECTED"
-        self.activity = ctx.get("activity") if isinstance(ctx.get("activity"), dict) else {}
+        activity = ctx.get("activity") if isinstance(ctx.get("activity"), dict) else {}
+        named = isinstance(activity.get("attributes"), dict) and activity["attributes"].get("programName")
+        if self._started and not named and time.time() - self._started[0] < STARTED_TTL:
+            # a start has just been sent from here and the cloud does not tell the new cycle yet:
+            # its answer must not take the name of the program away
+            activity = self._started[1]
+        else:
+            self._started = None
+        self.activity = activity
         history = ctx.get("commandHistory") if isinstance(ctx.get("commandHistory"), dict) else {}
         self.last_command = history.get("command") if isinstance(history.get("command"), dict) else {}
         self.context_at = time.time()
@@ -356,6 +366,7 @@ class Appliance:
         Without it the first real-time update would name the dial program that shares the same code."""
         self.activity = {"category": "CYCLE", "ttl": int(time.time()) + 3600, "attributes": {
             "prCode": str(program.get("prCode")), "programName": program["key"], "channel": "homeAssistant"}}
+        self._started = (time.time(), self.activity)
 
     @property
     def program_name(self) -> str | None:
@@ -459,9 +470,11 @@ class Appliance:
         def short(name: Any) -> str | None:
             return str(name).split(".")[-1].lower() if name else None
         attrs = self.activity.get("attributes") if isinstance(self.activity.get("attributes"), dict) else {}
+        read_at = datetime.fromtimestamp(self.context_at, timezone.utc).isoformat(timespec="seconds") if self.context_at else None
         return {**self.params, "hon_connected": self.connected,
                 "hon_activity_program": short(attrs.get("programName")),
-                "hon_last_program": short(self.last_command.get("programName"))}
+                "hon_last_program": short(self.last_command.get("programName")),
+                "hon_read_at": read_at}
 
     # ── hob ──────────────────────────────────────────────────────────────────
     def zone(self, z: int) -> dict:

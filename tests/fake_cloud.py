@@ -56,6 +56,7 @@ class FakeCloud:
         self.id_tokens: set[str] = set()
         self.sockets: list[tuple[web.WebSocketResponse, set[str]]] = []
         self.fail_refresh = False
+        self.outage = False                  # every request of the app answers 503
         self.refuse_subscriptions = False
         self.base = ""
         self._load(data)
@@ -133,6 +134,8 @@ class FakeCloud:
         @web.middleware
         async def guard(request, handler):
             self.calls.append((request.method, request.path))
+            if self.outage and not request.path.startswith(("/_test", "/mqtt")):
+                return web.json_response({"message": "Service Unavailable"}, status=503)
             open_paths = ("/ciam/", "/app-config", "/_", "/mqtt")
             if not request.path.startswith(open_paths) and not self._authorized(request):
                 return web.json_response({"message": "Forbidden"}, status=403)
@@ -162,6 +165,7 @@ class FakeCloud:
         r.add_post("/_test/expire", self.t_expire)
         r.add_post("/_test/drop", self.t_drop)
         r.add_post("/_test/password", self.t_password)
+        r.add_post("/_test/outage", self.t_outage)
         return app
 
     async def authorize(self, request):
@@ -291,6 +295,10 @@ class FakeCloud:
 
     async def t_drop(self, request):
         await self.drop_sockets()
+        return web.json_response({"ok": True})
+
+    async def t_outage(self, request):
+        self.outage = bool((await request.json()).get("on"))
         return web.json_response({"ok": True})
 
     async def t_password(self, request):

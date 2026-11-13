@@ -19,7 +19,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from . import model
 from .appliance import Appliance
 from .const import (COMMANDS_TTL, CONF_MOBILE_ID, DOMAIN, ENTITY_PARAMS, I18N_TTL, NO_MAINTENANCE, POLL_NO_PUSH,
-                    POLL_PUSH, SIMPLE_COMMANDS, SLOW_TTL)
+                    POLL_PUSH, SIMPLE_COMMANDS, SLOW_TTL, STALE_GRACE)
 from .hon import HonAuthError, HonClient, HonCommandError, HonConnectionError, HonError
 from .realtime import HonRealtime
 
@@ -58,6 +58,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         self.realtime: HonRealtime | None = None
         self.i18n: dict[str, str] = {}
         self._definitions_at = 0.0
+        self._answered_at = 0.0                                  # last time the cloud told us something
         self._machine: dict[str, str] = {}                       # last state seen while online, per appliance
         self._program: dict[str, str] = {}                       # name of the program of the cycle in progress
         self._locks: dict[str, asyncio.Lock] = {}                # one command at a time per appliance
@@ -133,7 +134,15 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             if not isinstance(err, HonError):
                 raise err
         if errors and len(errors) == len(results):
+            # the cloud answered for no appliance. One missed reading is not worth turning every entity
+            # unavailable and back (automations fire on that): the last one stays good for a while,
+            # and what changes in the meantime still arrives on the real-time channel
+            if time.time() - self._answered_at < STALE_GRACE:
+                _LOGGER.debug("hOn cloud not answering, keeping the last reading: %s", errors[0])
+                return self.appliances
             raise UpdateFailed(str(errors[0])) from errors[0]
+        if results:
+            self._answered_at = time.time()
         for err in errors:
             _LOGGER.debug("hOn update failed for one appliance: %s", err)
         if time.time() - self._definitions_at > COMMANDS_TTL:
@@ -221,6 +230,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         if self._closing or (a := self.appliances.get(mac)) is None:
             return
         a.apply_live(params)
+        self._answered_at = time.time()
         self._track(a)
         self._check_shape()
         self.async_update_listeners()
@@ -398,6 +408,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
                 raise HomeAssistantError(translation_domain=DOMAIN, translation_key="already_running")
             await self._send(a, {**built, "display_name": program["name"]})
             a.note_started(program)
+            self.async_update_listeners()     # the machine may have answered before the cloud did: name the cycle now
         return {**result, "sent": True}
 
     async def async_simple(self, a: Appliance, name: str) -> None:
