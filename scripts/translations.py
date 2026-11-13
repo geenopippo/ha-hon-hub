@@ -179,6 +179,8 @@ TEXTS = {
     "exceptions.command_rejected.message": ("hOn rejected the command.", "hOn ha rifiutato il comando."),
     "exceptions.cloud_error.message": ("hOn error: {error}", "Errore di hOn: {error}"),
     "exceptions.invalid_option.message": ("Not valid: {error}", "Non valido: {error}"),
+    "exceptions.hob_not_supported.message": ("Hob recipes cannot be started from Home Assistant yet.",
+                                             "Le ricette del piano non si possono ancora avviare da Home Assistant."),
     "exceptions.no_program.message": ("Choose the program in \"Program to start\" first.",
                                       "Scegli prima il programma in \"Programma da avviare\"."),
     "exceptions.no_device.message": ("This is not an appliance of hOn Hub, or the integration is not loaded.",

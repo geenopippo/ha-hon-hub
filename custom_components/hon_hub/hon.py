@@ -254,7 +254,8 @@ class HonClient:
 
     # ── commands ─────────────────────────────────────────────────────────────
     async def send(self, a: dict, command: str, parameters: dict, ancillary: dict,
-                   options: dict | None = None, program_name: str = "") -> dict:
+                   options: dict | None = None, program_name: str = "", display_name: str = "") -> dict:
+        """Send a command. display_name: the name of the program as the user sees it (the app sends it too)."""
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         body = {
             "macAddress": a["macAddress"],
@@ -271,6 +272,8 @@ class HonClient:
         }
         if command == "startProgram" and program_name:
             body["programName"] = program_name.upper()
+        if command == "startProgram" and display_name:
+            body["attributes"]["prStr"] = display_name
         _LOGGER.debug("sending %s %s", command, program_name)
         data = await self._request("POST", "/commands/v1/send", body=body)
         result = (data or {}).get("payload") or {}

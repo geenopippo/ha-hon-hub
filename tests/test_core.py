@@ -425,6 +425,20 @@ def test_draft_follows_the_rules_of_the_program():
     assert a.draft_values.get("dryOption", "0") == "0"
 
 
+def test_timed_drying_is_optional_and_needs_drying_on():
+    a = appliance("wd_209")
+    a.select_program("PROGRAMS.WM_WD.CARE_30")
+    assert a.option("dryTime") is None and "dryTime" not in a.draft_values      # drying off: no duration
+    a.set_option("dryOption", "1")
+    assert a.option("dryTime")["optional"] and "dryTime" not in a.draft_options()   # available, but not set
+    assert "dryTime" not in model.build_start(a.commands, a.draft_key, a.draft_options())["parameters"]
+    a.set_option("dryTime", 2)
+    assert model.build_start(a.commands, a.draft_key, a.draft_options())["parameters"]["dryTime"] == "2"
+    a.set_option("dryOption", "0")
+    assert "dryTime" not in a.draft_options()
+    assert "dryTime" not in model.build_start(a.commands, a.draft_key, a.draft_options())["parameters"]
+
+
 def test_every_program_of_every_fixture_can_be_built_from_its_defaults():
     for name in ("wd_209", "dw_12658", "ih_654", "dw_509"):
         a = Appliance({"macAddress": "m", "applianceTypeName": name.split("_")[0].upper()})

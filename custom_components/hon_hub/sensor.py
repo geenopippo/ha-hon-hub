@@ -18,6 +18,8 @@ from .const import DRY_LEVELS, PHASES, STATES, STATES_HOB, WASHING
 from .coordinator import HonConfigEntry, HonCoordinator
 from .entity import HonEntity
 
+# icon of the state sensor while the machine is idle (the other states have their own icon in icons.json)
+IDLE_ICONS = {"DW": "mdi:dishwasher", "TD": "mdi:tumble-dryer", "WM": "mdi:washing-machine", "WD": "mdi:washing-machine"}
 COUNTER_KEYS = {"filterCleaning": "filter_cleaning", "drumCleaning": "drum_cleaning",
                 "drawerCleaning": "drawer_cleaning", "sprayArmsCleaning": "spray_arms_cleaning"}
 
@@ -101,6 +103,12 @@ class HonSensor(HonEntity, SensorEntity):
     @property
     def native_value(self) -> str | int | float | datetime | None:
         return self.entity_description.value(self.appliance)
+
+    @property
+    def icon(self) -> str | None:
+        if self.entity_description.key == "status" and self.appliance.status == "ready":
+            return IDLE_ICONS.get(self.appliance.type)
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:

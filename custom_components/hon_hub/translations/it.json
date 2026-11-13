@@ -1116,6 +1116,9 @@
     "invalid_option": {
       "message": "Non valido: {error}"
     },
+    "hob_not_supported": {
+      "message": "Le ricette del piano non si possono ancora avviare da Home Assistant."
+    },
     "no_program": {
       "message": "Scegli prima il programma in \"Programma da avviare\"."
     },

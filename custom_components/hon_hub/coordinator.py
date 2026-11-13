@@ -277,7 +277,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
     async def _send(self, a: Appliance, built: dict) -> None:
         try:
             await self.client.send(a.info, built["command"], built["parameters"], built["ancillary"],
-                                   built.get("options"), built.get("program_name", ""))
+                                   built.get("options"), built.get("program_name", ""), built.get("display_name", ""))
         except HonError as err:
             raise self._error(err) from err
         self._later(4, a)
@@ -297,6 +297,10 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
     async def async_start_program(self, a: Appliance, program: dict, options: dict[str, Any], *,
                                   validate_only: bool = False) -> dict[str, Any]:
         """Start a program with the given options. validate_only: build the command and do not send it."""
+        if a.is_hob:
+            # the official app sends hob recipes in a format of its own (one command per zone, zone bitmap):
+            # until that is reproduced exactly, nothing is sent to an appliance that heats
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="hob_not_supported")
         try:
             built = model.build_start(a.commands, program["key"], {k: str(v) for k, v in options.items()})
         except ValueError as err:
@@ -307,7 +311,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         if validate_only:
             return result
         self._check(a, remote=True)
-        await self._send(a, built)
+        await self._send(a, {**built, "display_name": program["name"]})
         return {**result, "sent": True}
 
     async def async_simple(self, a: Appliance, name: str) -> None:

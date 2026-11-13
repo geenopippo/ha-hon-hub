@@ -39,8 +39,7 @@ class HonProgramSelect(HonEntity, SelectEntity, RestoreEntity):
 
     @property
     def current_option(self) -> str | None:
-        key = self.appliance.draft_key
-        return next((label for label, p in self.appliance.program_labels().items() if p["key"] == key), None)
+        return self.appliance.program_label(self.appliance.draft_key)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

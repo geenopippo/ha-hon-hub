@@ -74,6 +74,7 @@ class Appliance:
         self._pending: dict[str, str] = {}   # settings just sent, shown until the cloud confirms them
         self._pending_at = 0.0
         self._by_key: dict[str, dict] = {}
+        self._labels: dict[str, dict] = {}
         # program chosen in Home Assistant and its options, waiting for "start"
         self.draft_key = ""
         self.draft_values: dict[str, str] = {}
@@ -123,6 +124,7 @@ class Appliance:
         self.commands = commands or {}
         self.desc = model.describe(self.info, self.commands, i18n or {})
         self._by_key = {p["key"].upper(): p for p in self.desc["programs"]}
+        self._labels = self._make_labels()
         if self.draft_key and self.draft_key.upper() not in self._by_key:
             self.draft_key, self.draft_values, self._draft_defs = "", {}, {}
         elif self.draft_key:
@@ -264,6 +266,12 @@ class Appliance:
 
     def program_labels(self) -> dict[str, dict]:
         """Readable, unique label -> program. Programs with the same name get the code in brackets."""
+        return self._labels
+
+    def program_label(self, key: str) -> str | None:
+        return next((label for label, p in self._labels.items() if p["key"] == key), None) if key else None
+
+    def _make_labels(self) -> dict[str, dict]:
         count: dict[str, int] = {}
         for p in self.programs:
             count[p["name"]] = count.get(p["name"], 0) + 1
@@ -324,11 +332,14 @@ class Appliance:
         defs = {d["key"]: d for d in p["params"]}
         self._draft_defs, values = model.apply_rules(defs, {k: v for k, v in self.draft_values.items() if k in defs},
                                                      p["rules"])
-        self.draft_values = {k: str(v) for k, v in values.items()}
+        # optional parameters (timed drying, water hardness) have no value until the user gives one
+        self.draft_values = {k: str(v) for k, v in values.items() if v is not None}
 
     def option(self, key: str) -> dict | None:
         """Definition of an option for the chosen program, after its rules. None = not available."""
         d = self._draft_defs.get(key)
+        if key == "dryTime" and self.draft_values.get("dryOption") == "0":
+            return None                       # no drying asked: its duration makes no sense
         return d if d and d.get("type") != "fixed" else None
 
     def set_option(self, key: str, value: Any) -> None:

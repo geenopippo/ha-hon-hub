@@ -6,6 +6,9 @@ import copy
 import re
 
 SIMPLE_COMMANDS = ("stopProgram", "pauseProgram", "resumeProgram")
+# settings of the machine that some models list among the parameters of every program. The official app never
+# sends them with a program, so the machine keeps its own value: neither do we, unless the user asks for it.
+MACHINE_SETTINGS = {"waterHard"}
 # technical parameters that make no sense as an option for the user
 HIDDEN_PARAMS = {"lang", "prStr", "onOffStatus", "prCode", "prPosition", "operationName", "checkUpStatus",
                  "favourite", "program", "cloudProgId", "cloudProgSrc", "httpEndpoint", "mqttEndpoint"}
@@ -21,7 +24,9 @@ def _is_command(d) -> bool:
     return isinstance(d, dict) and "parameters" in d and ("description" in d or "protocolType" in d)
 
 
-def _param(name: str, d: dict) -> dict | None:
+def _param(name: str, d: dict, program: bool = False) -> dict | None:
+    """Definition of one parameter. program=True: it belongs to startProgram, where the parameters that are
+    not mandatory and have no default (dryTime) are left out unless the user sets them, like the app does."""
     t = d.get("typology")
     p = {"key": name, "type": t, "category": d.get("category"), "mandatory": d.get("mandatory")}
     if t == "fixed":
@@ -47,13 +52,16 @@ def _param(name: str, d: dict) -> dict | None:
         p["default"] = num(d.get("defaultValue"), p["min"])
     else:
         return None
+    if program and t != "fixed" and not d.get("mandatory") and (d.get("defaultValue") is None or name in MACHINE_SETTINGS):
+        p["optional"] = True
+        p["default"] = None
     return p
 
 
-def _command(d: dict) -> dict:
+def _command(d: dict, program: bool = False) -> dict:
     params = {}
     for k, v in (d.get("parameters") or {}).items():
-        if isinstance(v, dict) and (p := _param(k, v)):
+        if isinstance(v, dict) and (p := _param(k, v, program)):
             params[k] = p
     anc = d.get("ancillaryParameters") or {}
     anc_params = {}
@@ -119,7 +127,7 @@ def describe(appliance: dict, commands: dict, i18n: dict | None = None) -> dict:
     for key, d in start.items():
         if not _is_command(d):
             continue
-        c = _command(d)
+        c = _command(d, program=True)
         anc = c["ancillary_raw"]
         flag = lambda k: str(((anc.get(k) or {}).get("fixedValue")) if isinstance(anc.get(k), dict) else "1")
         fam = (anc.get("programFamily") or {}).get("enumValues") or [] if isinstance(anc.get("programFamily"), dict) else []
@@ -200,9 +208,9 @@ def apply_rules(defs: dict, values: dict, rules: list[dict]) -> tuple[dict, dict
                 new = _coerce(p, cur) if cur is not None else None
             except ValueError:
                 new = None
-            if new is None:
+            if new is None and not p.get("optional"):
                 new = _coerce(p, p.get("value") if p["type"] == "fixed" else p["default"])
-            if str(cur) != new:
+            if (None if cur is None else str(cur)) != new:
                 vals[k] = new
                 changed = True
         if not changed:
@@ -236,7 +244,7 @@ def build_start(commands: dict, program_key: str, user_values: dict) -> dict:
     if not _is_command(d):
         raise ValueError("program not found")
     options = commands.get("options") if isinstance(commands.get("options"), dict) else {}
-    c = _command(d)
+    c = _command(d, program=True)
     rules = _rules(c["ancillary_raw"], options)
     defs = _with_triggers(c, rules)
     for k in user_values:
@@ -249,7 +257,7 @@ def build_start(commands: dict, program_key: str, user_values: dict) -> dict:
     _, values = apply_rules(defs, values, rules)
     # like the app: fixed parameters without a value (prStr) are not sent
     params = {k: str(v) for k, v in values.items() if v not in (None, "") and k in c["params"]}
-    chosen = {k: str(v) for k, v in values.items() if k not in c["params"]}
+    chosen = {k: str(v) for k, v in values.items() if k not in c["params"] and v is not None}
     return {"command": "startProgram", "parameters": params,
             "ancillary": _ancillary(c["ancillary_raw"], chosen), "options": options,
             "program_name": "" if program_key == "PROGRAMS.DEFAULT" else program_key}

@@ -77,4 +77,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: HonConfigEntry) -> bool
 
 async def async_remove_config_entry_device(hass: HomeAssistant, entry: HonConfigEntry, device: dr.DeviceEntry) -> bool:
     """Allow deleting the device of an appliance that is no longer in the account."""
-    return not any(i[0] == DOMAIN and i[1] in entry.runtime_data.appliances for i in device.identifiers)
+    coordinator: HonCoordinator | None = getattr(entry, "runtime_data", None)
+    known = coordinator.appliances if coordinator else {}
+    return not any(i[0] == DOMAIN and i[1] in known for i in device.identifiers)

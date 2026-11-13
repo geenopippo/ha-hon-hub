@@ -166,6 +166,10 @@ async def main():
         assert "95" in err, err
         await fails(ha.call("hon_hub.start_program", {"device_id": device, "program": "non esiste"}), 400)
         await fails(ha.call("hon_hub.start_program", {"device_id": "nope", "program": "eco"}), 400)
+        hob = await ha.template("{{ device_id('sensor.%s_stato') }}" % IH)
+        before = len(await sent())
+        await fails(ha.call("hon_hub.start_program", {"device_id": hob, "program": "iot_standard_boiling"}), 400)
+        assert len(await sent()) == before                                   # nothing is ever sent to the hob
         res = await ha.call("hon_hub.start_program", {"device_id": device, "program": "Eco 40-60", "options": {"spinSpeed": "800"}},
                             response=True)
         cmd = (await sent())[-1]

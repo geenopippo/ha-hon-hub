@@ -1116,6 +1116,9 @@
     "invalid_option": {
       "message": "Not valid: {error}"
     },
+    "hob_not_supported": {
+      "message": "Hob recipes cannot be started from Home Assistant yet."
+    },
     "no_program": {
       "message": "Choose the program in \"Program to start\" first."
     },
