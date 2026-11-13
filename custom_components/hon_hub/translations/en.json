@@ -1101,6 +1101,9 @@
     "remote_control_off": {
       "message": "Remote control is off on the machine: turn it on from its panel and try again."
     },
+    "already_running": {
+      "message": "The appliance already has a cycle running or scheduled: stop it before starting another one."
+    },
     "invalid_auth": {
       "message": "The hOn login is no longer valid: enter email and password again."
     },

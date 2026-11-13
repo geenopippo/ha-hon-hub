@@ -173,6 +173,9 @@ TEXTS = {
     "exceptions.remote_control_off.message": (
         "Remote control is off on the machine: turn it on from its panel and try again.",
         "Il controllo remoto è disattivato sulla macchina: attivalo dal pannello e riprova."),
+    "exceptions.already_running.message": (
+        "The appliance already has a cycle running or scheduled: stop it before starting another one.",
+        "L'elettrodomestico ha già un ciclo in corso o programmato: interrompilo prima di avviarne un altro."),
     "exceptions.invalid_auth.message": ("The hOn login is no longer valid: enter email and password again.",
                                         "L'accesso a hOn non è più valido: inserisci di nuovo email e password."),
     "exceptions.cannot_connect.message": ("The hOn cloud cannot be reached.", "Il cloud hOn non è raggiungibile."),

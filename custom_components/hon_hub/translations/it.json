@@ -1101,6 +1101,9 @@
     "remote_control_off": {
       "message": "Il controllo remoto è disattivato sulla macchina: attivalo dal pannello e riprova."
     },
+    "already_running": {
+      "message": "L'elettrodomestico ha già un ciclo in corso o programmato: interrompilo prima di avviarne un altro."
+    },
     "invalid_auth": {
       "message": "L'accesso a hOn non è più valido: inserisci di nuovo email e password."
     },

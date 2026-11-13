@@ -325,6 +325,9 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         if validate_only:
             return result
         self._check(a, remote=True)
+        if a.active:
+            # a cycle is running or scheduled: the app does not offer a start either, stop it first
+            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="already_running")
         await self._send(a, {**built, "display_name": program["name"]})
         return {**result, "sent": True}
 

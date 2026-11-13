@@ -100,26 +100,34 @@ async def main():
         ok("stop")
 
         print("5. rules between options (washer dryer)")
+        before = len(await sent())
+        await ha.call("select.select_option", {"entity_id": f"select.{WD}_programma_da_avviare", "option": "Care 30'"})
+        await fails(ha.call("button.press", {"entity_id": f"button.{WD}_avvia_programma"}), 500)
+        assert len(await sent()) == before                                   # a cycle is running: nothing is sent
+        await push("WD", {"machMode": "1"})
+        await expect(f"sensor.{WD}_stato", "ready", 2)
         await ha.call("select.select_option", {"entity_id": f"select.{WD}_programma_da_avviare", "option": "Care 30'"})
         await expect(f"switch.{WD}_opzione_asciuga_dopo_il_lavaggio", "off", 2)
         await expect(f"select.{WD}_opzione_livello_di_asciugatura", "unavailable", 2)
         await ha.call("switch.turn_on", {"entity_id": f"switch.{WD}_opzione_asciuga_dopo_il_lavaggio"})
         level = (await ha.states(f"{WD}_opzione_livello_di_asciugatura"))[f"select.{WD}_opzione_livello_di_asciugatura"]
         assert level["state"] != "unavailable" and "3" in level["attributes"]["options"], level
+        assert level["state"] != "0", level                                  # drying on: the default level, not "none"
         await ha.call("select.select_option", {"entity_id": f"select.{WD}_opzione_livello_di_asciugatura", "option": "3"})
         await ha.call("select.select_option", {"entity_id": f"select.{WD}_opzione_temperatura", "option": "40"})
         await ha.call("button.press", {"entity_id": f"button.{WD}_avvia_programma"})
         cmd = (await sent())[-1]
         assert cmd["programName"] == "PROGRAMS.WM_WD.CARE_30" and cmd["parameters"]["dryLevel"] == "3", cmd
         assert cmd["parameters"]["temp"] == "40" and cmd["ancillaryParameters"]["dryOption"] == "1", cmd
-        ok("drying level appears only with 'dry after washing'; command built with the rule applied")
+        assert cmd["attributes"]["prStr"] == "Care 30'" and "dryTime" not in cmd["parameters"], cmd
+        ok("drying level appears only with 'dry after washing'; command built like the official app does")
         for name in ("pausa", "riprendi"):
             await ha.call("button.press", {"entity_id": f"button.{WD}_{name}"})
         assert [c["commandName"] for c in (await sent())[-2:]] == ["pauseProgram", "resumeProgram"]
         ok("pause and resume")
 
         print("6. remote control off / appliance offline")
-        await push("WD", {"remoteCtrValid": "0"})
+        await push("WD", {"remoteCtrValid": "0", "machMode": "1"})
         await expect(f"binary_sensor.{WD}_controllo_remoto", "off", 2)
         before = len(await sent())
         err = await fails(ha.call("button.press", {"entity_id": f"button.{WD}_avvia_programma"}), 500)
@@ -174,7 +182,7 @@ async def main():
                             response=True)
         cmd = (await sent())[-1]
         assert res["service_response"]["sent"] is True and cmd["parameters"]["spinSpeed"] == "800", cmd
-        ok("wrong option, wrong program and wrong device are refused; a valid call is sent")
+        ok("wrong option, wrong program, wrong device and the hob are refused; a valid call is sent")
 
         print("10. expired tokens and dropped channel")
         refreshes = (await ha.cloud("/_test/state"))["refreshes"]
@@ -230,8 +238,9 @@ async def main():
         text = log.stdout + log.stderr
         bad = [line for line in text.splitlines()
                if any(w in line for w in ("ERROR", "blocking call", "Task exception", "Unexpected", "never awaited"))]
-        # the two errors this scenario causes on purpose: a refused command and the changed password
+        # the errors this scenario causes on purpose: two refused commands and the changed password
         allowed = ("Error during service call to button.press: Remote control is off",
+                   "Error during service call to button.press: The appliance already has a cycle running",
                    "Authentication failed while fetching hon_hub data")
         unexpected = [line for line in bad if not any(a in line for a in allowed)]
         assert not unexpected, "\n".join(unexpected[:20])
