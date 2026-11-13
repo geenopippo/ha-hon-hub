@@ -359,6 +359,12 @@ def test_real_time_values_win_over_an_older_rest_answer():
     assert a.params["remainingTimeMM"] == "146" and a.connected is True
 
 
+def test_an_empty_answer_does_not_wipe_the_state():
+    a = appliance("dw_12658")
+    a.apply_context({})                                      # the cloud sometimes answers with no payload
+    assert a.status == "running" and a.params["remainingTimeMM"] == "146" and a.connected is True
+
+
 def test_pending_settings_are_shown_until_the_machine_confirms(monkeypatch):
     a = appliance("dw_12658")
     assert a.params["waterHard"] == "4"
@@ -406,6 +412,8 @@ def test_draft_follows_the_rules_of_the_program():
     assert a.option("prCode") is None and a.option("nonEsiste") is None
     a.set_option("dryOption", "1")
     assert a.option("dryLevel")["type"] == "enum"
+    default = next(d for d in a.program(a.draft_key)["params"] if d["key"] == "dryLevel")["default"]
+    assert a.draft_values["dryLevel"] == default != "0"      # drying on: the default level, not "no drying"
     a.set_option("dryLevel", "3")
     a.set_option("temp", 40)
     opts = a.draft_options()

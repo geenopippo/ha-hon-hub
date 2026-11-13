@@ -49,7 +49,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         if program is None:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="program_not_found",
                                          translation_placeholders={"program": call.data["program"]})
-        options: dict[str, Any] = {k: (int(v) if isinstance(v, bool) else v) for k, v in call.data["options"].items()}
+        # yaml gives true/false and 40.0 where hOn wants 1/0 and 40
+        options: dict[str, Any] = {k: (int(v) if isinstance(v, bool) or (isinstance(v, float) and v.is_integer()) else v)
+                                   for k, v in call.data["options"].items()}
         result = await coordinator.async_start_program(appliance, program, options,
                                                        validate_only=call.data["validate_only"])
         return result if call.return_response else None

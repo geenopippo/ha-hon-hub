@@ -77,7 +77,9 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             await self._load_commands()
         except HonAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
-        self._definitions_at = time.time()
+        # if the programs of an appliance could not be read, try again in ten minutes instead of tomorrow
+        complete = all(a.commands for a in self.appliances.values())
+        self._definitions_at = time.time() if complete else time.time() - COMMANDS_TTL + 600
         self.realtime = HonRealtime(self.client, infos, on_status=self._on_status, on_presence=self._on_presence,
                                     on_discovery=self._on_discovery, on_channel=self._on_channel)
 
@@ -139,7 +141,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
     async def _update(self, a: Appliance) -> None:
         asked = time.time()
         a.apply_context(await self.client.context(a.info), asked)
-        if time.time() - a.slow_at > SLOW_TTL:
+        if a.is_cycle and time.time() - a.slow_at > SLOW_TTL:
             await self._update_slow(a)
 
     async def _update_slow(self, a: Appliance) -> None:
@@ -167,12 +169,22 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             _LOGGER.info("The hOn appliances of the account changed: reloading")
             self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
             return
+        before = {mac: self._shape(a) for mac, a in self.appliances.items()}
         for info in infos:
             self.appliances[info["macAddress"]].info = info
         try:
             await self._load_commands()
         except HonError as err:
             _LOGGER.debug("hOn programs not refreshed: %s", err)
+        if any(self._shape(a) != before[mac] for mac, a in self.appliances.items()):
+            _LOGGER.info("The options of a hOn appliance changed: reloading to create the new entities")
+            self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
+
+    @staticmethod
+    def _shape(a: Appliance) -> tuple:
+        """What decides which entities exist: when it changes the entry is reloaded."""
+        return (bool(a.programs), sorted((k, tuple(sorted(v))) for k, v in a.option_kinds().items()),
+                [d["key"] for d in a.settings], list(a.simple_commands))
 
     # ── real-time channel ────────────────────────────────────────────────────
     @callback
@@ -195,8 +207,10 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
 
     @callback
     def _on_discovery(self, mac: str) -> None:
-        self._definitions_at = 0.0            # something changed on the account: re-read the definitions
-        self._later(5)
+        # an appliance announced itself (new pairing, new firmware): re-read the definitions, at most once an hour
+        if time.time() - self._definitions_at > 3600:
+            self._definitions_at = 0.0
+            self._later(5)
 
     @callback
     def _on_channel(self, up: bool) -> None:

@@ -79,6 +79,7 @@ class Appliance:
         self.draft_key = ""
         self.draft_values: dict[str, str] = {}
         self._draft_defs: dict[str, dict] = {}
+        self._draft_forced: set[str] = set()   # options currently locked by a rule of the program
 
     # ── identity ─────────────────────────────────────────────────────────────
     @property
@@ -132,11 +133,14 @@ class Appliance:
 
     def apply_context(self, ctx: dict, requested_at: float | None = None) -> None:
         """Result of commands/v1/context. Values received in real time after the request win."""
+        if not ctx:
+            return                            # an empty answer must not wipe what we know
         requested_at = requested_at or time.time()
         shadow = model.flat_params(ctx)
-        fresh = {k: v for k, v in self._base.items() if self._live_at.get(k, 0) > requested_at}
-        self._base = {**{k: str(v) for k, v in shadow.items() if v is not None}, **fresh}
-        self._live_at = {k: t for k, t in self._live_at.items() if k in fresh}
+        if shadow:
+            fresh = {k: v for k, v in self._base.items() if self._live_at.get(k, 0) > requested_at}
+            self._base = {**{k: str(v) for k, v in shadow.items() if v is not None}, **fresh}
+            self._live_at = {k: t for k, t in self._live_at.items() if k in fresh}
         event = ((ctx.get("lastConnEvent") or {}).get("category") or "").upper()
         if event and self._presence_at <= requested_at:
             self.connected = event != "DISCONNECTED"
@@ -153,7 +157,9 @@ class Appliance:
             self._base[key] = str(value)
             self._live_at[key] = now
             self._pending.pop(key, None)      # the machine itself says what the value is now
-        self.connected = True                 # it is talking, so it is online
+        if self.connected is not True:        # it is talking, so it is online, whatever an older answer says
+            self.connected = True
+            self._presence_at = now
         self.live_messages += 1
         self._rebuild()
 
@@ -322,6 +328,7 @@ class Appliance:
             raise ValueError("Program not found")
         self.draft_key = p["key"]
         self.draft_values = {}
+        self._draft_forced = set()
         self._apply_draft()
 
     def _apply_draft(self) -> None:
@@ -330,8 +337,20 @@ class Appliance:
             self._draft_defs = {}
             return
         defs = {d["key"]: d for d in p["params"]}
-        self._draft_defs, values = model.apply_rules(defs, {k: v for k, v in self.draft_values.items() if k in defs},
-                                                     p["rules"])
+
+        def locked(effective: dict) -> set[str]:
+            return {k for k, d in effective.items() if d.get("type") == "fixed"}
+
+        effective, values = model.apply_rules(defs, {k: v for k, v in self.draft_values.items() if k in defs}, p["rules"])
+        released = self._draft_forced - locked(effective)
+        if released:
+            # an option a rule had locked is free again: it goes back to the default of the program, like in the
+            # app (drying turned on -> the level is the default one, not the "no drying" the rule had forced)
+            for key in released:
+                values[key] = defs[key].get("default") if key in defs else None
+            effective, values = model.apply_rules(defs, values, p["rules"])
+        self._draft_forced = locked(effective)
+        self._draft_defs = effective
         # optional parameters (timed drying, water hardness) have no value until the user gives one
         self.draft_values = {k: str(v) for k, v in values.items() if v is not None}
 
