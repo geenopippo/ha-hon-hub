@@ -201,7 +201,10 @@ def apply_rules(defs: dict, values: dict, rules: list[dict]) -> tuple[dict, dict
         eff = copy.deepcopy(defs)
         for r in rules:
             if all(str(vals.get(k)) == str(v) for k, v in r["when"].items()) and r["param"] in eff:
-                eff[r["param"]] = {**r["set"], "key": r["param"]}
+                forced = {**r["set"], "key": r["param"]}
+                if defs[r["param"]].get("optional") and forced["type"] != "fixed":
+                    forced.update(optional=True, default=None)      # an optional parameter stays optional
+                eff[r["param"]] = forced
         for k, p in eff.items():
             cur = vals.get(k)
             try:
@@ -248,13 +251,23 @@ def build_start(commands: dict, program_key: str, user_values: dict) -> dict:
     rules = _rules(c["ancillary_raw"], options)
     defs = _with_triggers(c, rules)
     for k in user_values:
-        if k not in defs:
-            raise ValueError(f"{k}: option not available for this program")
+        if k not in defs or k in HIDDEN_PARAMS or defs[k]["type"] == "fixed":
+            raise ValueError(f"{k}: not an option of this program")
     values = {k: (p.get("value") if p["type"] == "fixed" else p["default"]) for k, p in defs.items()}
-    for k, v in user_values.items():
-        if defs[k]["type"] != "fixed":
-            values[k] = _coerce(defs[k], v)
+    wanted = {k: _coerce(defs[k], v) for k, v in user_values.items()}
+    values.update(wanted)
     _, values = apply_rules(defs, values, rules)
+    # what the user asked for must be what is sent: a rule of the program that overrides it is an error,
+    # not a silent change (asking for a drying level without turning drying on would wash and not dry)
+    for k, v in wanted.items():
+        if values.get(k) != v:
+            asked = {**values, **wanted}
+            rule = next((r for r in rules if r["param"] == k
+                         and all(str(asked.get(a)) == str(b) for a, b in r["when"].items())), None)
+            why = " with " + ", ".join(f"{a}={b}" for a, b in rule["when"].items()) if rule else ""
+            raise ValueError(f"{k}: {v} is not possible{why}")
+    if "dryTime" in wanted and str(values.get("dryOption")) == "0":
+        raise ValueError("dryTime: needs dryOption=1")
     # like the app: fixed parameters without a value (prStr) are not sent
     params = {k: str(v) for k, v in values.items() if v not in (None, "") and k in c["params"]}
     chosen = {k: str(v) for k, v in values.items() if k not in c["params"] and v is not None}
@@ -270,6 +283,9 @@ def build_settings(commands: dict, current: dict, user_values: dict) -> dict:
     if not _is_command(settings):
         raise ValueError("this appliance has no settings")
     c = _command(settings)
+    for k in user_values:
+        if k not in c["params"] or k in HIDDEN_PARAMS or c["params"][k]["type"] == "fixed":
+            raise ValueError(f"{k}: not a setting of this appliance")
     params = {}
     for k, p in c["params"].items():
         if p["type"] == "fixed":
@@ -283,9 +299,6 @@ def build_settings(commands: dict, current: dict, user_values: dict) -> dict:
                 v = _coerce(p, p["default"])
         if v not in (None, ""):
             params[k] = str(v)
-    unknown = set(user_values) - set(c["params"])
-    if unknown:
-        raise ValueError(f"unknown settings: {', '.join(sorted(unknown))}")
     return {"command": "settings", "parameters": params, "ancillary": _ancillary(c["ancillary_raw"]),
             "options": commands.get("options") if isinstance(commands.get("options"), dict) else {}}
 

@@ -139,3 +139,35 @@ def test_settings_still_send_every_value(dw):
     # in the settings command nothing is optional: every setting goes with its current value
     s = model.build_settings(dw, {}, {"lightStatus": "1"})
     assert s["parameters"]["waterHard"] == "4" and s["parameters"]["buzzerDisabled"] == "0"
+
+
+def test_options_the_program_cannot_honour_are_refused_not_dropped(wd, dw):
+    # a drying level without turning drying on would wash and not dry: say it instead of starting
+    with pytest.raises(ValueError, match="dryOption=0"):
+        model.build_start(wd, "PROGRAMS.WM_WD.CARE_30", {"dryLevel": "3"})
+    assert model.build_start(wd, "PROGRAMS.WM_WD.CARE_30", {"dryLevel": "3", "dryOption": "1"})["parameters"]["dryLevel"] == "3"
+    with pytest.raises(ValueError, match="dryOption=1"):
+        model.build_start(wd, "PROGRAMS.WM_WD.CARE_30", {"dryTime": "2"})
+    care = next(p for p in model.describe({}, wd)["programs"] if p["key"] == "PROGRAMS.WM_WD.CARE_30")
+    fixed = next(k for k in care["fixed"] if k not in model.HIDDEN_PARAMS)
+    for key in (fixed, "prCode", "lang"):                    # fixed by the program, or technical
+        with pytest.raises(ValueError, match="not an option"):
+            model.build_start(wd, "PROGRAMS.WM_WD.CARE_30", {key: "1"})
+    with pytest.raises(ValueError, match="not a setting"):
+        model.build_settings(dw, {}, {"saltStatus": "1"})    # fixed in the settings command
+    with pytest.raises(ValueError, match="not a setting"):
+        model.build_settings(dw, {}, {"boh": "1"})
+
+
+def test_two_options_that_exclude_each_other_are_refused():
+    cmds = load("dw_509", "commands")
+    for p in model.describe({}, cmds)["programs"]:
+        on_off = {d["key"] for d in p["params"] if d["type"] == "range" and (d["min"], d["max"]) == (0, 1)}
+        for r in p["rules"]:
+            (trigger, value), = r["when"].items() if len(r["when"]) == 1 else [(None, None)]
+            if r["set"]["type"] == "fixed" and r["set"]["value"] == "0" and value == "1" and {trigger, r["param"]} <= on_off:
+                with pytest.raises(ValueError, match="is not possible"):
+                    model.build_start(cmds, p["key"], {trigger: "1", r["param"]: "1"})
+                assert model.build_start(cmds, p["key"], {trigger: "1"})["parameters"][trigger] == "1"
+                return
+    pytest.skip("no mutually exclusive options in this fixture")

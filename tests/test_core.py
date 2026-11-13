@@ -77,6 +77,26 @@ def test_wrong_password_is_an_auth_error():
     run(go())
 
 
+def test_a_refused_password_is_not_tried_again():
+    async def go():
+        async with Env(password="sbagliata") as e:
+            for _ in range(4):
+                with pytest.raises(hon.HonAuthError):
+                    await e.client.appliances()
+            assert e.cloud.calls.count(("GET", "/ciam/authorize")) == 1 and e.client.auth_failed
+    run(go())
+
+
+def test_null_fields_from_the_cloud_do_not_break_the_requests():
+    async def go():
+        async with Env() as e:
+            dw = next(a for a in await e.client.appliances() if a["applianceTypeName"] == "DW")
+            assert "startProgram" in await e.client.commands({**dw, "code": None, "series": None, "fwVersion": None})
+            e.cloud.appliances.clear()
+            assert await e.client.appliances() == []
+    run(go())
+
+
 def test_unreachable_cloud_is_a_connection_error():
     async def go():
         async with aiohttp.ClientSession() as s:
@@ -188,6 +208,12 @@ def test_codec_packets():
     assert realtime._varint(321) == b"\xc1\x02"
 
 
+def test_codec_refuses_truncated_packets():
+    for flags, body in ((0, b""), (0, b"\x00"), (0, b"\x00\x09abc"), (2, b"\x00\x01t\x00")):
+        with pytest.raises(ValueError):
+            realtime.parse_publish(flags, body)
+
+
 def test_status_parameters_accepts_both_shapes():
     assert realtime.status_parameters({"parameters": [{"parName": "machMode", "parNewVal": 2}, {"parName": "x"}]}) == {"machMode": "2"}
     assert realtime.status_parameters({"parameters": {"temp": {"parNewVal": "40"}, "y": "1"}}) == {"temp": "40", "y": "1"}
@@ -260,6 +286,26 @@ def test_realtime_is_not_up_if_every_subscription_is_refused(monkeypatch):
             e.cloud.refuse_subscriptions = False             # the cloud accepts again: the listener recovers alone
             assert await wait_for(lambda: lis.rt.connected)
             await lis.rt.stop()
+    run(go())
+
+
+def test_realtime_stops_and_says_so_when_the_password_is_refused(monkeypatch):
+    async def go():
+        async with Env() as e:
+            apps = await e.client.appliances()
+            e.cloud.password = "cambiata"                    # changed in the app: sessions and tokens die
+            e.cloud.session_ids.clear()
+            e.cloud.expire_tokens()
+            said = []
+            rt = realtime.HonRealtime(e.client, apps, url=e.base.replace("http", "ws") + "/mqtt",
+                                      on_status=lambda *a: None, on_presence=lambda *a: None,
+                                      on_auth_failed=lambda: said.append(1))
+            rt.start()
+            assert await wait_for(lambda: said == [1])
+            assert await wait_for(lambda: rt._task.done()) and not rt.connected
+            await asyncio.sleep(0.2)
+            assert e.cloud.calls.count(("GET", "/ciam/authorize")) == 2      # the first login and one failed try
+            await rt.stop()
     run(go())
 
 
@@ -346,6 +392,42 @@ def test_end_time_is_stable_while_the_minutes_tick():
     assert a.status == "finished" and a.program_name is None and a.phase is None and not a.active
 
 
+def test_end_time_does_not_drift_when_the_machine_does_not_count_down(monkeypatch):
+    clock = [1_800_000_000.0]
+    monkeypatch.setattr(appliance_mod, "time", type("T", (), {"time": staticmethod(lambda: clock[0])}))
+    a = appliance("wd_209")
+    first = a.end_at
+    for _ in range(4):                                       # read again every 3 minutes: always "163 minutes"
+        clock[0] += 180
+        a.apply_context(load("wd_209", "attributes"))
+        assert a.end_at == first
+    a.apply_live({"remainingTimeMM": "151"})                 # 12 minutes passed, 12 minutes less: same end
+    assert a.end_at == first
+    clock[0] += 60
+    a.apply_live({"remainingTimeMM": "170"})                 # a real change of mind of the machine
+    assert a.end_at > first
+
+
+def test_machine_status_ignores_the_connection():
+    a = appliance("wd_209")
+    a.apply_presence(False)
+    assert a.status == "offline" and a.machine_status == "running"
+
+
+def test_pending_settings_expire_one_by_one(monkeypatch):
+    clock = [1_800_000_000.0]
+    monkeypatch.setattr(appliance_mod, "time", type("T", (), {"time": staticmethod(lambda: clock[0])}))
+    a = appliance("dw_12658")
+    a.set_pending({"waterHard": "6"})
+    clock[0] += 60
+    a.set_pending({"lightStatus": "1"})                      # a second change must not keep the first alive
+    clock[0] += 40
+    a.refresh()
+    assert a.params["waterHard"] == "4" and a.params["lightStatus"] == "1"
+    a.drop_pending(["lightStatus"])
+    assert a.params["lightStatus"] == "0"
+
+
 def test_scheduled_adds_the_delay():
     a = appliance("dw_12658")
     a.apply_live({"machMode": "5", "delayTime": "60", "remainingTimeMM": "100"})
@@ -411,6 +493,24 @@ def test_program_started_from_an_app_is_recognised():
     assert a.current_program is None
 
 
+def test_a_program_started_from_here_is_named_before_the_cloud_says_so():
+    a = appliance("wd_209")
+    iot = next(p for p in a.programs if p["id"].startswith("iot_") and p["prCode"])
+    a.activity = {}
+    a.note_started(iot)
+    a.apply_live({"prCode": str(iot["prCode"]), "prPosition": str(iot["fixed"].get("prPosition")), "machMode": "2"})
+    assert a.program_name == iot["name"]
+
+
+def test_programs_that_only_start_from_the_machine_are_not_offered():
+    a = appliance("dw_12658")
+    local = a.programs[0]
+    local["remote"] = False
+    a._labels = a._make_labels()
+    assert local not in a.program_labels().values() and len(a.program_labels()) == len(a.programs) - 1
+    assert a.find_program(local["id"]) is local              # still known: it can be the one running
+
+
 def test_find_program_and_labels():
     a = appliance("dw_12658")
     assert a.find_program("eco")["key"] == "PROGRAMS.DW.ECO"
@@ -462,6 +562,8 @@ def test_timed_drying_is_optional_and_needs_drying_on():
     a.set_option("dryOption", "0")
     assert "dryTime" not in a.draft_options()
     assert "dryTime" not in model.build_start(a.commands, a.draft_key, a.draft_options())["parameters"]
+    a.set_option("dryOption", "1")                           # drying on again: the old duration is forgotten
+    assert "dryTime" not in a.draft_values and a.option("dryTime") is not None
 
 
 def test_every_program_of_every_fixture_can_be_built_from_its_defaults():

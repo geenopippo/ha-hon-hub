@@ -92,11 +92,15 @@ def split_packets(buf: bytearray) -> list[tuple[int, int, bytes]]:
 
 
 def parse_publish(flags: int, body: bytes) -> tuple[str, bytes, int, int]:
-    """-> (topic, payload, qos, packet id)."""
+    """-> (topic, payload, qos, packet id). ValueError if the packet is cut short."""
+    qos = (flags >> 1) & 3
+    if len(body) < 2:
+        raise ValueError("truncated PUBLISH packet")
     size = struct.unpack("!H", body[:2])[0]
+    if len(body) < 2 + size + (2 if qos else 0):
+        raise ValueError("truncated PUBLISH packet")
     topic = body[2:2 + size].decode()
     rest = body[2 + size:]
-    qos = (flags >> 1) & 3
     packet_id = 0
     if qos:
         packet_id = struct.unpack("!H", rest[:2])[0]
@@ -137,6 +141,7 @@ class HonRealtime:
                  on_presence: Callable[[str, bool], None],
                  on_discovery: Callable[[str], None] | None = None,
                  on_channel: Callable[[bool], None] | None = None,
+                 on_auth_failed: Callable[[], None] | None = None,
                  session: aiohttp.ClientSession | None = None, url: str | None = None) -> None:
         self._client = client
         self._session = session
@@ -145,6 +150,7 @@ class HonRealtime:
         self._on_presence = on_presence
         self._on_discovery = on_discovery
         self._on_channel = on_channel
+        self._on_auth_failed = on_auth_failed
         self._topics: dict[str, str] = {}      # topic -> mac
         for a in appliances:
             mac = a["macAddress"]
@@ -204,9 +210,11 @@ class HonRealtime:
             except asyncio.CancelledError:
                 raise
             except HonAuthError as err:
-                # wrong password: the REST polling raises the re-authentication, here we just wait
+                # wrong password: say it and stop. A new listener starts when the credentials are entered again
                 self.last_error = str(err)
-                backoff = BACKOFF_MAX
+                self._channel(False)
+                self._call(self._on_auth_failed)
+                return
             except (HonError, aiohttp.ClientError, asyncio.TimeoutError, ConnectionError, ValueError, OSError) as err:
                 self.last_error = f"{type(err).__name__}: {err}".rstrip(": ")
             except Exception as err:   # noqa: BLE001 - never give up on the channel
@@ -278,6 +286,8 @@ class HonRealtime:
                     if not pending:
                         self._channel(True)
                 elif kind == SUBACK:
+                    if len(body) < 3:
+                        raise ValueError("truncated SUBACK packet")
                     asked = pending.pop(struct.unpack("!H", body[:2])[0], [])
                     refused = [t for t, code in zip(asked, body[2:]) if code & 0x80]
                     granted += len(asked) - len(refused)

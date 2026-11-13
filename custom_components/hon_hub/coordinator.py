@@ -18,8 +18,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from . import model
 from .appliance import Appliance
-from .const import (COMMANDS_TTL, CONF_MOBILE_ID, DOMAIN, I18N_TTL, NO_MAINTENANCE, POLL_NO_PUSH, POLL_PUSH,
-                    SIMPLE_COMMANDS, SLOW_TTL)
+from .const import (COMMANDS_TTL, CONF_MOBILE_ID, DOMAIN, ENTITY_PARAMS, I18N_TTL, NO_MAINTENANCE, POLL_NO_PUSH,
+                    POLL_PUSH, SIMPLE_COMMANDS, SLOW_TTL)
 from .hon import HonAuthError, HonClient, HonCommandError, HonConnectionError, HonError
 from .realtime import HonRealtime
 
@@ -59,6 +59,9 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         self.i18n: dict[str, str] = {}
         self._definitions_at = 0.0
         self._machine: dict[str, str] = {}                       # last state seen while online, per appliance
+        self._program: dict[str, str] = {}                       # name of the program of the cycle in progress
+        self._locks: dict[str, asyncio.Lock] = {}                # one command at a time per appliance
+        self._shapes: dict[str, tuple] | None = None             # data the existing entities were created from
         self._cycle_listeners: dict[str, list[CycleListener]] = {}
         self._timers: set[CALLBACK_TYPE] = set()
         self._closing = False
@@ -81,7 +84,8 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         complete = all(a.commands for a in self.appliances.values())
         self._definitions_at = time.time() if complete else time.time() - COMMANDS_TTL + 600
         self.realtime = HonRealtime(self.client, infos, on_status=self._on_status, on_presence=self._on_presence,
-                                    on_discovery=self._on_discovery, on_channel=self._on_channel)
+                                    on_discovery=self._on_discovery, on_channel=self._on_channel,
+                                    on_auth_failed=self._on_auth_failed)
 
     @callback
     def async_start_realtime(self) -> None:
@@ -133,9 +137,13 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         for err in errors:
             _LOGGER.debug("hOn update failed for one appliance: %s", err)
         if time.time() - self._definitions_at > COMMANDS_TTL:
-            await self._refresh_definitions()
+            try:
+                await self._refresh_definitions()
+            except HonAuthError as err:
+                raise ConfigEntryAuthFailed(str(err)) from err
         for a in self.appliances.values():
             self._track(a)
+        self._check_shape()
         return self.appliances
 
     async def _update(self, a: Appliance) -> None:
@@ -162,6 +170,8 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         self._definitions_at = time.time()
         try:
             infos = await self.client.appliances()
+        except HonAuthError:
+            raise
         except HonError as err:
             _LOGGER.debug("hOn appliance list not refreshed: %s", err)
             return
@@ -172,45 +182,72 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         before = {mac: self._shape(a) for mac, a in self.appliances.items()}
         for info in infos:
             self.appliances[info["macAddress"]].info = info
-        try:
-            await self._load_commands()
-        except HonError as err:
-            _LOGGER.debug("hOn programs not refreshed: %s", err)
+        await self._load_commands()             # only an authentication error comes out of here
         if any(self._shape(a) != before[mac] for mac, a in self.appliances.items()):
             _LOGGER.info("The options of a hOn appliance changed: reloading to create the new entities")
             self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
 
+    # ── what decides which entities exist ────────────────────────────────────
     @staticmethod
     def _shape(a: Appliance) -> tuple:
-        """What decides which entities exist: when it changes the entry is reloaded."""
+        """Definitions: programs, options, settings. Compared when the definitions are read again."""
         return (bool(a.programs), sorted((k, tuple(sorted(v))) for k, v in a.option_kinds().items()),
                 [d["key"] for d in a.settings], list(a.simple_commands))
+
+    @staticmethod
+    def _data_shape(a: Appliance) -> tuple:
+        """Data: counters and the parameters that have an entity of their own. It can only grow."""
+        return (tuple(a.counters), tuple(sorted(a.resettable)), a.maintenance.get("tabs") is not None,
+                frozenset(k for k in a.seen if k in ENTITY_PARAMS or k.startswith("hotStatusZ")))
+
+    @callback
+    def async_entities_created(self) -> None:
+        """The platforms have just created the entities from the data known now."""
+        self._shapes = {mac: self._data_shape(a) for mac, a in self.appliances.items()}
+
+    @callback
+    def _check_shape(self) -> None:
+        """Data that arrived late (the first reading had failed) need entities that do not exist: reload once."""
+        if self._shapes is None or self._closing:
+            return
+        if any(self._data_shape(a) != self._shapes.get(mac) for mac, a in self.appliances.items()):
+            self._shapes = None
+            _LOGGER.info("New data from a hOn appliance: reloading to create the missing entities")
+            self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
 
     # ── real-time channel ────────────────────────────────────────────────────
     @callback
     def _on_status(self, mac: str, params: dict[str, str]) -> None:
-        if (a := self.appliances.get(mac)) is None:
+        if self._closing or (a := self.appliances.get(mac)) is None:
             return
         a.apply_live(params)
         self._track(a)
+        self._check_shape()
         self.async_update_listeners()
 
     @callback
     def _on_presence(self, mac: str, connected: bool) -> None:
-        if (a := self.appliances.get(mac)) is None:
+        if self._closing or (a := self.appliances.get(mac)) is None:
             return
         a.apply_presence(connected)
         if connected:
-            self._later(3, a)                 # back online: read its whole state
-        self._track(a)
+            self._later(1, a)                 # back online: what we know may be from before it was switched off
+        else:
+            self._track(a)
         self.async_update_listeners()
 
     @callback
     def _on_discovery(self, mac: str) -> None:
         # an appliance announced itself (new pairing, new firmware): re-read the definitions, at most once an hour
-        if time.time() - self._definitions_at > 3600:
+        if not self._closing and time.time() - self._definitions_at > 3600:
             self._definitions_at = 0.0
             self._later(5)
+
+    @callback
+    def _on_auth_failed(self) -> None:
+        """The cloud refused email and password: ask the user for them again."""
+        if not self._closing:
+            self.config_entry.async_start_reauth(self.hass)
 
     @callback
     def _on_channel(self, up: bool) -> None:
@@ -230,25 +267,38 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
 
         async def run(_now: Any) -> None:
             self._timers.discard(cancel)
+            if self._closing:
+                return
             if appliance is None:
                 await self.async_request_refresh()
                 return
             try:
                 await self._update(appliance)
+            except HonAuthError:
+                self._on_auth_failed()
+                return
             except HonError as err:
                 _LOGGER.debug("hOn refresh failed: %s", err)
                 return
+            if self._closing:
+                return
             self._track(appliance)
+            self._check_shape()
             self.async_update_listeners()
 
         cancel = async_call_later(self.hass, seconds, run)
         self._timers.add(cancel)
 
-    async def async_shutdown(self) -> None:
+    @callback
+    def async_stop(self) -> None:
+        """The entry is being unloaded: from now on nothing here touches Home Assistant any more."""
         self._closing = True
         for cancel in list(self._timers):
             cancel()
         self._timers.clear()
+
+    async def async_shutdown(self) -> None:
+        self.async_stop()
         await super().async_shutdown()
 
     # ── cycle events ─────────────────────────────────────────────────────────
@@ -264,24 +314,35 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
     @callback
     def _track(self, a: Appliance) -> None:
         """Compare the state with the previous one and fire the cycle events."""
-        if not a.is_cycle or a.connected is False:
-            return                            # while offline the last state seen is kept: no false start/end
-        new = a.status
-        previous = self._machine.get(a.mac)
-        self._machine[a.mac] = new
-        event = cycle_event(previous, new)
-        if event is None:
+        if not a.is_cycle:
             return
-        program = a.current_program
-        data = {"program": program["name"] if program else None}
-        _LOGGER.debug("hOn %s: %s -> %s (%s)", a.type, previous, new, event)
-        for listener in list(self._cycle_listeners.get(a.mac, [])):
-            listener(event, data)
-        if event == "finished":
-            a.slow_at = 0.0                   # counters and statistics change at the end of a cycle
-            self._later(60, a)
+        previous = self._machine.get(a.mac)
+        if a.connected is False:
+            # nothing happens while offline. The last state seen stays, so a wifi drop in the middle of a cycle
+            # is not a new start; a machine found switched off starts from what it said last
+            if previous is None:
+                self._machine[a.mac] = a.machine_status
+            return
+        new = a.status
+        self._machine[a.mac] = new
+        if a.active and (program := a.current_program) is not None:
+            self._program[a.mac] = program["name"]        # kept for the end: some machines clear the code by then
+        event = cycle_event(previous, new)
+        if event is not None:
+            _LOGGER.debug("hOn %s: %s -> %s (%s)", a.type, previous, new, event)
+            data = {"program": self._program.get(a.mac)}
+            for listener in list(self._cycle_listeners.get(a.mac, [])):
+                listener(event, data)
+            if event == "finished":
+                a.slow_at = 0.0               # counters and statistics change at the end of a cycle
+                self._later(60, a)
+        if not a.active:
+            self._program.pop(a.mac, None)
 
     # ── commands ─────────────────────────────────────────────────────────────
+    def _lock(self, a: Appliance) -> asyncio.Lock:
+        return self._locks.setdefault(a.mac, asyncio.Lock())
+
     def _check(self, a: Appliance, remote: bool) -> None:
         if a.connected is False:
             raise HomeAssistantError(translation_domain=DOMAIN, translation_key="offline")
@@ -299,7 +360,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
 
     def _error(self, err: HonError) -> HomeAssistantError:
         if isinstance(err, HonAuthError):
-            self.config_entry.async_start_reauth(self.hass)
+            self._on_auth_failed()
             return HomeAssistantError(translation_domain=DOMAIN, translation_key="invalid_auth")
         if isinstance(err, HonConnectionError):
             return HomeAssistantError(translation_domain=DOMAIN, translation_key="cannot_connect")
@@ -308,6 +369,11 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         return HomeAssistantError(translation_domain=DOMAIN, translation_key="cloud_error",
                                   translation_placeholders={"error": str(err)})
 
+    @staticmethod
+    def _invalid(err: object) -> ServiceValidationError:
+        return ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_option",
+                                      translation_placeholders={"error": str(err)})
+
     async def async_start_program(self, a: Appliance, program: dict, options: dict[str, Any], *,
                                   validate_only: bool = False) -> dict[str, Any]:
         """Start a program with the given options. validate_only: build the command and do not send it."""
@@ -315,53 +381,62 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             # the official app sends hob recipes in a format of its own (one command per zone, zone bitmap):
             # until that is reproduced exactly, nothing is sent to an appliance that heats
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="hob_not_supported")
+        if not program.get("remote", True):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="not_remote")
         try:
             built = model.build_start(a.commands, program["key"], {k: str(v) for k, v in options.items()})
         except ValueError as err:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_option",
-                                         translation_placeholders={"error": str(err)}) from err
+            raise self._invalid(err) from err
         result = {"program": program["name"], "program_key": program["key"], "parameters": built["parameters"],
                   "sent": False}
         if validate_only:
             return result
-        self._check(a, remote=True)
-        if a.active:
-            # a cycle is running or scheduled: the app does not offer a start either, stop it first
-            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="already_running")
-        await self._send(a, {**built, "display_name": program["name"]})
+        async with self._lock(a):
+            self._check(a, remote=True)
+            if a.active:
+                # a cycle is running or scheduled: the app does not offer a start either, stop it first
+                raise HomeAssistantError(translation_domain=DOMAIN, translation_key="already_running")
+            await self._send(a, {**built, "display_name": program["name"]})
+            a.note_started(program)
         return {**result, "sent": True}
 
     async def async_simple(self, a: Appliance, name: str) -> None:
         """Pause, resume or stop."""
         if name not in SIMPLE_COMMANDS:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_option",
-                                         translation_placeholders={"error": name})
+            raise self._invalid(name)
         try:
             built = model.build_simple(a.commands, name)
         except ValueError as err:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_option",
-                                         translation_placeholders={"error": str(err)}) from err
-        self._check(a, remote=True)
-        await self._send(a, built)
+            raise self._invalid(err) from err
+        async with self._lock(a):
+            self._check(a, remote=True)
+            await self._send(a, built)
 
     async def async_set_setting(self, a: Appliance, key: str, value: Any) -> None:
-        """Change one setting of the machine. The others are sent with their current value, like the app."""
-        self._check(a, remote=False)
-        a.refresh()
-        try:
-            built = model.build_settings(a.commands, a.params, {key: str(value)})
-        except ValueError as err:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_option",
-                                         translation_placeholders={"error": str(err)}) from err
-        await self._send(a, built)
-        a.set_pending({key: built["parameters"][key]})
-        self.async_update_listeners()
+        """Change one setting of the machine. The others are sent with their current value, like the app.
+
+        One at a time: two changes built from the same reading would undo each other."""
+        async with self._lock(a):
+            self._check(a, remote=False)
+            a.refresh()
+            try:
+                built = model.build_settings(a.commands, a.params, {key: str(value)})
+            except ValueError as err:
+                raise self._invalid(err) from err
+            # shown right away; the confirmation of the machine (or 90 seconds without one) takes over
+            a.set_pending({key: built["parameters"][key]})
+            self.async_update_listeners()
+            try:
+                await self._send(a, built)
+            except HomeAssistantError:
+                a.drop_pending([key])
+                self.async_update_listeners()
+                raise
 
     async def async_reset_counter(self, a: Appliance, counter: str) -> None:
         how = a.resettable.get(counter)
         if how is None:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_option",
-                                         translation_placeholders={"error": counter})
+            raise self._invalid(counter)
         try:
             if how == "notification":
                 await self.client.clear_filter_cleaning(a.info)

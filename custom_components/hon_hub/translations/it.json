@@ -22,6 +22,7 @@
       "invalid_auth": "Email o password errate",
       "cannot_connect": "Il cloud hOn non è raggiungibile",
       "no_appliances": "Questo account hOn non ha elettrodomestici",
+      "already_configured": "Questo account è già configurato",
       "unknown": "Risposta inattesa da hOn: controlla il registro"
     },
     "abort": {
@@ -112,10 +113,10 @@
         "name": "Fine prevista"
       },
       "cycle_water": {
-        "name": "Acqua del ciclo"
+        "name": "Acqua consumata"
       },
       "cycle_energy": {
-        "name": "Energia del ciclo"
+        "name": "Energia consumata"
       },
       "total_cycles": {
         "name": "Cicli totali",
@@ -1121,6 +1122,9 @@
     },
     "hob_not_supported": {
       "message": "Le ricette del piano non si possono ancora avviare da Home Assistant."
+    },
+    "not_remote": {
+      "message": "Questo programma si può avviare solo dalla macchina."
     },
     "no_program": {
       "message": "Scegli prima il programma in \"Programma da avviare\"."

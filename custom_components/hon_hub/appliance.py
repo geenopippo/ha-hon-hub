@@ -71,8 +71,9 @@ class Appliance:
         self._base: dict[str, str] = {}      # shadow read with REST + real-time updates
         self._live_at: dict[str, float] = {}
         self._presence_at = 0.0
-        self._pending: dict[str, str] = {}   # settings just sent, shown until the cloud confirms them
-        self._pending_at = 0.0
+        self._pending: dict[str, tuple[str, float]] = {}   # settings just sent: value and when, until confirmed
+        self._end_key: tuple | None = None
+        self.seen: set[str] = set()          # every parameter name ever received: it decides which entities exist
         self._by_key: dict[str, dict] = {}
         self._labels: dict[str, dict] = {}
         # program chosen in Home Assistant and its options, waiting for "start"
@@ -169,14 +170,21 @@ class Appliance:
         self._rebuild()
 
     def set_pending(self, values: dict[str, str]) -> None:
-        self._pending.update({k: str(v) for k, v in values.items()})
-        self._pending_at = time.time()
+        now = time.time()
+        self._pending.update({k: (str(v), now) for k, v in values.items()})
+        self._rebuild()
+
+    def drop_pending(self, keys) -> None:
+        """The command was not sent after all: show the real values again."""
+        for key in keys:
+            self._pending.pop(key, None)
         self._rebuild()
 
     def _rebuild(self) -> None:
-        if self._pending and time.time() - self._pending_at > PENDING_TTL:
-            self._pending = {}
-        self.params = {**self._base, **self._pending}
+        now = time.time()
+        self._pending = {k: (v, t) for k, (v, t) in self._pending.items() if now - t <= PENDING_TTL}
+        self.params = {**self._base, **{k: v for k, (v, _) in self._pending.items()}}
+        self.seen.update(self.params)
         self._track_end()
 
     def refresh(self) -> None:
@@ -184,14 +192,18 @@ class Appliance:
         self._rebuild()
 
     def _track_end(self) -> None:
-        remaining = self.remaining
-        if self.status in ("running", "scheduled") and remaining > 0:
-            target = time.time() + remaining * 60
-            # the machine counts minutes: small differences are only jitter, keep the previous estimate
-            if self.end_at is None or abs(self.end_at - target) > 90:
-                self.end_at = round(target / 60) * 60
-        else:
-            self.end_at = None
+        status, remaining = self.status, self.remaining
+        if status not in ("running", "scheduled") or remaining <= 0:
+            self.end_at, self._end_key = None, None
+            return
+        key = (status, remaining)
+        if key == self._end_key and self.end_at is not None:
+            return      # same figures as before (some phases do not count down): the estimate does not move
+        self._end_key = key
+        target = time.time() + remaining * 60
+        # the machine counts minutes: one minute less after one minute is the same end, keep the previous estimate
+        if self.end_at is None or abs(self.end_at - target) > 90:
+            self.end_at = round(target / 60) * 60
 
     # ── derived state ────────────────────────────────────────────────────────
     @property
@@ -205,14 +217,17 @@ class Appliance:
         return None
 
     @property
-    def status(self) -> str:
-        if self.connected is False:
-            return "offline"
+    def machine_status(self) -> str:
+        """What the last data received say, even if the machine is offline now."""
         if self.is_hob:
             return "on" if any(self.params.get(f"onOffStatusZ{z}") == "1" for z in range(1, self.zones + 1)) else "off"
         if self.error_code:
             return "error"
         return MACH_MODE.get(to_int(self.params.get("machMode"), 0), "ready")
+
+    @property
+    def status(self) -> str:
+        return "offline" if self.connected is False else self.machine_status
 
     @property
     def active(self) -> bool:
@@ -278,11 +293,12 @@ class Appliance:
         return next((label for label, p in self._labels.items() if p["key"] == key), None) if key else None
 
     def _make_labels(self) -> dict[str, dict]:
+        startable = [p for p in self.programs if p.get("remote", True)]     # the others only from the machine
         count: dict[str, int] = {}
-        for p in self.programs:
+        for p in startable:
             count[p["name"]] = count.get(p["name"], 0) + 1
         out: dict[str, dict] = {}
-        for p in self.programs:
+        for p in startable:
             label = p["name"] if count[p["name"]] == 1 else f"{p['name']} ({p['id']})"
             while label in out:
                 label += " *"
@@ -313,6 +329,13 @@ class Appliance:
                     return p
         dial = [p for p in placed if not p["id"].startswith("iot_")]
         return (dial or placed)[0]
+
+    def note_started(self, program: dict) -> None:
+        """A start was sent from here: until the cloud tells its own version, this is the program running.
+
+        Without it the first real-time update would name the dial program that shares the same code."""
+        self.activity = {"category": "CYCLE", "ttl": int(time.time()) + 3600, "attributes": {
+            "prCode": str(program.get("prCode")), "programName": program["key"], "channel": "homeAssistant"}}
 
     @property
     def program_name(self) -> str | None:
@@ -349,6 +372,8 @@ class Appliance:
             for key in released:
                 values[key] = defs[key].get("default") if key in defs else None
             effective, values = model.apply_rules(defs, values, p["rules"])
+        if str(values.get("dryOption")) == "0":
+            values.pop("dryTime", None)       # drying off: forget its duration, so turning it on again starts clean
         self._draft_forced = locked(effective)
         self._draft_defs = effective
         # optional parameters (timed drying, water hardness) have no value until the user gives one

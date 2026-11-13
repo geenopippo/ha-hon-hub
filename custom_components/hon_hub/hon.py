@@ -85,6 +85,7 @@ class HonClient:
         self._expires = 0.0
         self._forced_at = 0.0
         self._forced_full_at = 0.0
+        self.auth_failed = False          # the cloud refused email and password: nothing more is sent
         self._lock = asyncio.Lock()
 
     # ── connection ───────────────────────────────────────────────────────────
@@ -122,6 +123,10 @@ class HonClient:
         full: do not use the saved session, send email and password again.
         """
         async with self._lock:
+            if self.auth_failed:
+                # do not keep trying a refused password (every attempt is a failed login on the account):
+                # a new client is created when the user enters the credentials again
+                raise HonAuthError("Wrong hOn email or password")
             now = time.time()
             if not force and self._tokens and now < self._expires:
                 return
@@ -150,12 +155,12 @@ class HonClient:
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
         status, text = await self._raw("GET", "/ciam/authorize", params={
             "username": self.email, "password": self.password, "code_challenge": challenge})
-        if status in (400, 401, 403):
-            raise HonAuthError("Wrong hOn email or password")
-        if status != 200:
+        if status not in (200, 400, 401, 403):
             raise HonError(f"hOn login failed (HTTP {status})")
-        session_id = (_loads(text) or {}).get("session_id")
+        session_id = (_loads(text) or {}).get("session_id") if status == 200 else None
         if not session_id:
+            self._tokens, self._session_id, self._expires = {}, "", 0.0
+            self.auth_failed = True
             raise HonAuthError("Wrong hOn email or password")
         status, text = await self._raw("POST", "/ciam/token",
                                        body={"session_id": session_id, "code_verifier": verifier})
@@ -198,10 +203,12 @@ class HonClient:
     async def appliances(self) -> list[dict]:
         data = await self._request("POST", "/unified-api/v1/view/appliance-list", body={"deviceId": self.mobile_id})
         try:
-            items = data["modules"]["applianceList"]["payload"]["appliances"]
+            items = data["modules"]["applianceList"]["payload"]["appliances"] or []
         except (KeyError, TypeError) as err:
             raise HonError(f"Cannot read the appliance list: {str(data)[:200]}") from err
-        return [a for a in items if a.get("macAddress") and a.get("applianceTypeName")]
+        if not isinstance(items, list):
+            raise HonError(f"Cannot read the appliance list: {str(items)[:200]}")
+        return [a for a in items if isinstance(a, dict) and a.get("macAddress") and a.get("applianceTypeName")]
 
     async def commands(self, a: dict) -> dict:
         params = {"applianceType": a.get("applianceTypeName"), "code": a.get("code", ""),
@@ -210,9 +217,11 @@ class HonClient:
         for src, dst in (("eepromId", "firmwareId"), ("fwVersion", "fwVersion"), ("series", "series")):
             if a.get(src):
                 params[dst] = a[src]
+        # the cloud sometimes has null where a text is expected: a null cannot go in a query string
+        params = {k: v for k, v in params.items() if v is not None}
         data = await self._request("GET", "/commands/v1/retrieve", params=params)
-        payload = (data or {}).get("payload") or {}
-        if payload.pop("resultCode", "0") != "0":
+        payload = (data or {}).get("payload") if isinstance(data, dict) else None
+        if not isinstance(payload, dict) or payload.pop("resultCode", "0") != "0":
             return {}
         return payload
 

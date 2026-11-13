@@ -80,3 +80,8 @@ PARAM_ORDER = ["temp", "spinSpeed", "dirtyLevel", "dryOption", "dryLevel", "dryT
                "autoDetergentStatus", "autoSoftenerStatus", "waterHard", "delayTime"]
 
 CYCLE_EVENTS = ["started", "paused", "resumed", "finished", "error", "scheduled"]
+
+# parameters that have an entity of their own, created only if the machine reports them
+ENTITY_PARAMS = frozenset({"remoteCtrValid", "doorStatus", "saltStatus", "rinseAidStatus", "detWarn", "softWarn",
+                           "hobLockStatus", "lockStatus", "currentWaterUsed", "currentElectricityUsed", "temp",
+                           "spinSpeed", "dryLevel"})

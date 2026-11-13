@@ -56,7 +56,12 @@ class HonHubConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             email, password = user_input[CONF_EMAIL].strip(), user_input[CONF_PASSWORD]
-            if (error := await self._check(email, password)) is None:
+            other = self.hass.config_entries.async_entry_for_domain_unique_id(DOMAIN, email.lower())
+            if other is not None and other.entry_id != entry.entry_id:
+                error: str | None = "already_configured"      # that account already has its own entry
+            else:
+                error = await self._check(email, password)
+            if error is None:
                 return self.async_update_reload_and_abort(entry, unique_id=email.lower(), title=email, data={
                     CONF_EMAIL: email, CONF_PASSWORD: password,
                     CONF_MOBILE_ID: entry.data.get(CONF_MOBILE_ID) or secrets.token_hex(8)})

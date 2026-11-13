@@ -53,7 +53,7 @@ async def main():
         await expect(f"sensor.{DW}_tempo_residuo", "100", 2)
         await expect(f"sensor.{DW}_fase", "washing", 2)
         ok("remaining time and phase pushed")
-        await push("DW", {"machMode": "7"})
+        await push("DW", {"machMode": "7", "prCode": "0"})       # like the real machines: the code is cleared at the end
         await expect(f"sensor.{DW}_stato", "finished", 2)
         ev = (await ha.states(f"{DW}_ciclo"))[f"event.{DW}_ciclo"]
         assert ev["attributes"]["event_type"] == "finished" and ev["attributes"]["program"] == "Igienizzante", ev
@@ -93,7 +93,9 @@ async def main():
         assert cmd["parameters"]["delayTime"] == "60" and cmd["macAddress"] == mac["DW"], cmd
         await expect(f"sensor.{DW}_stato", "scheduled", 3)
         await expect(f"sensor.{DW}_programma", "Eco", 3)
-        ok("start sent with the chosen options; state follows")
+        ev = (await ha.states(f"{DW}_ciclo"))[f"event.{DW}_ciclo"]["attributes"]
+        assert ev["event_type"] == "scheduled" and ev["program"] == "Eco", ev
+        ok("start sent with the chosen options; state and event follow, with the right program name")
         await ha.call("button.press", {"entity_id": f"button.{DW}_interrompi"})
         assert (await sent())[-1]["commandName"] == "stopProgram"
         await expect(f"sensor.{DW}_stato", "ready", 3)
@@ -140,12 +142,16 @@ async def main():
         cmd = (await sent())[-1]
         assert cmd["commandName"] == "settings" and cmd["parameters"]["lightStatus"] == "1", cmd
         assert cmd["parameters"]["waterHard"] == "4", cmd                    # the other settings keep their value
-        await ha.call("number.set_value", {"entity_id": f"number.{DW}_durezza_dell_acqua", "value": 6})
-        cmd = (await sent())[-1]
-        assert cmd["parameters"]["waterHard"] == "6" and cmd["parameters"]["lightStatus"] == "1", cmd
+        await ha.call("switch.turn_off", {"entity_id": f"switch.{DW}_luce_interna"})
+        before = len(await sent())
+        await asyncio.gather(                                                # two settings changed at the same moment
+            ha.call("switch.turn_on", {"entity_id": f"switch.{DW}_luce_interna"}),
+            ha.call("number.set_value", {"entity_id": f"number.{DW}_durezza_dell_acqua", "value": 6}))
+        cmds = (await sent())[before:]
+        assert len(cmds) == 2 and cmds[-1]["parameters"]["waterHard"] == "6" and cmds[-1]["parameters"]["lightStatus"] == "1", cmds
         await expect(f"switch.{DW}_luce_interna", "on", 2)
         await expect(f"number.{DW}_durezza_dell_acqua", "6", 2)
-        ok("a second setting sent right after the first does not undo it")
+        ok("two settings changed together: the second command carries both")
 
         print("8. maintenance")
         await expect(f"binary_sensor.{DW}_manutenzione_da_fare", "on")
@@ -172,6 +178,8 @@ async def main():
         ok("validate_only builds the command and sends nothing")
         err = await fails(ha.call("hon_hub.start_program", {"device_id": device, "program": "Eco 40-60", "options": {"temp": 95}}), 400)
         assert "95" in err, err
+        err = await fails(ha.call("hon_hub.start_program", {"device_id": device, "program": "care_30", "options": {"dryLevel": 3}}), 400)
+        assert "dryOption=0" in err, err                                     # a level without drying on: refused, not dropped
         await fails(ha.call("hon_hub.start_program", {"device_id": device, "program": "non esiste"}), 400)
         await fails(ha.call("hon_hub.start_program", {"device_id": "nope", "program": "eco"}), 400)
         hob = await ha.template("{{ device_id('sensor.%s_stato') }}" % IH)
@@ -210,12 +218,22 @@ async def main():
             assert secret not in diag, f"{secret} leaked in the diagnostics"
         assert '"realtime": {"connected": true' in diag and "PROGRAMS.DW.ECO" in diag
         ok(f"diagnostics download ({len(diag) // 1024} kB) without account or mac addresses")
+        await push("WD", {"machMode": "1"})
+        await ha.cloud(f"/_test/presence/{mac['WD']}", {"connected": False})     # the washer dryer is switched off
+        await expect(f"sensor.{WD}_stato", "offline", 3)
         await ha.post(f"/api/config/config_entries/entry/{entry['entry_id']}/reload")
         await expect(f"sensor.{DW}_stato", "running")
         await asyncio.sleep(1.5)
         assert (await ha.cloud("/_test/state"))["sockets"] == 1
         assert await ha.state(f"select.{DW}_programma_da_avviare") == "Eco"            # the choice survives a reload
         ok("reload: one channel open, chosen program restored")
+        stamp = await ha.state(f"event.{WD}_ciclo")
+        await ha.cloud(f"/_test/presence/{mac['WD']}", {"connected": True})      # switched on and started from its panel
+        await push("WD", {"machMode": "2", "prCode": "42", "prPosition": "3"})
+        await expect(f"sensor.{WD}_stato", "running", 5)
+        ev = (await ha.states(f"{WD}_ciclo"))[f"event.{WD}_ciclo"]
+        assert ev["state"] != stamp and ev["attributes"]["event_type"] == "started", ev
+        ok("a machine that was off when Home Assistant started still fires 'started'")
 
         print("12. password changed in the app -> re-authentication")
         await ha.cloud("/_test/password", {"password": "nuova"})
@@ -244,7 +262,9 @@ async def main():
                    "Authentication failed while fetching hon_hub data")
         unexpected = [line for line in bad if not any(a in line for a in allowed)]
         assert not unexpected, "\n".join(unexpected[:20])
-        assert text.count("Traceback (most recent call last)") == 2, "unexpected traceback in the log"   # the auth one
+        # the changed password is noticed either by the real-time channel (no log) or by the polling (one logged error)
+        expected = 2 if "Authentication failed while fetching hon_hub data" in text else 0
+        assert text.count("Traceback (most recent call last)") == expected, "unexpected traceback in the log"
         ok("nothing unexpected in the Home Assistant log")
         print("ALL GOOD")
 

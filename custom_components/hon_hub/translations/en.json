@@ -22,6 +22,7 @@
       "invalid_auth": "Wrong email or password",
       "cannot_connect": "The hOn cloud cannot be reached",
       "no_appliances": "This hOn account has no appliances",
+      "already_configured": "This account is already configured",
       "unknown": "Unexpected answer from hOn: check the log"
     },
     "abort": {
@@ -112,10 +113,10 @@
         "name": "Expected end"
       },
       "cycle_water": {
-        "name": "Cycle water"
+        "name": "Water used"
       },
       "cycle_energy": {
-        "name": "Cycle energy"
+        "name": "Energy used"
       },
       "total_cycles": {
         "name": "Total cycles",
@@ -1121,6 +1122,9 @@
     },
     "hob_not_supported": {
       "message": "Hob recipes cannot be started from Home Assistant yet."
+    },
+    "not_remote": {
+      "message": "This program can only be started from the machine."
     },
     "no_program": {
       "message": "Choose the program in \"Program to start\" first."
