@@ -198,7 +198,7 @@ class HonCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
     def _data_shape(a: Appliance) -> tuple:
         """Data: counters and the parameters that have an entity of their own. It can only grow."""
         return (tuple(a.counters), tuple(sorted(a.resettable)), a.maintenance.get("tabs") is not None,
-                frozenset(k for k in a.seen if k in ENTITY_PARAMS or k.startswith("hotStatusZ")))
+                frozenset(k for k in a.seen if k in ENTITY_PARAMS or k.startswith(("hotStatusZ", "tempZ"))))
 
     @callback
     def async_entities_created(self) -> None:

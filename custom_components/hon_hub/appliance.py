@@ -434,6 +434,15 @@ class Appliance:
             return None
         return any((to_int(c.get("remaining"), 1) or 0) <= 0 for c in counters)
 
+    def raw(self) -> dict[str, Any]:
+        """Every parameter exactly as hOn reports it, for templates that need the raw codes."""
+        def short(name: Any) -> str | None:
+            return str(name).split(".")[-1].lower() if name else None
+        attrs = self.activity.get("attributes") if isinstance(self.activity.get("attributes"), dict) else {}
+        return {**self.params, "hon_connected": self.connected,
+                "hon_activity_program": short(attrs.get("programName")),
+                "hon_last_program": short(self.last_command.get("programName"))}
+
     # ── hob ──────────────────────────────────────────────────────────────────
     def zone(self, z: int) -> dict:
         p = self.params
@@ -445,5 +454,6 @@ class Appliance:
             "power": (to_int(p.get(f"powerZ{z}"), 0) or 0) if on else 0,
             "pan": p.get(f"panStatusZ{z}") == "1" if online else None,
             "hot": p.get(f"hotStatusZ{z}") == "1" if online and f"hotStatusZ{z}" in p else None,
+            "temperature": to_float(p.get(f"tempZ{z}")) if online and f"tempZ{z}" in p else None,
             "timer": hours * 60 + minutes if on else 0,
         }

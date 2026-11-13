@@ -148,6 +148,12 @@
       "zone_power": {
         "name": "Zone {zone} power"
       },
+      "zone_temperature": {
+        "name": "Zone {zone} temperature"
+      },
+      "raw_parameters": {
+        "name": "Raw parameters"
+      },
       "filter_cleaning": {
         "name": "Filter cleaning: cycles left",
         "unit_of_measurement": "cycles"

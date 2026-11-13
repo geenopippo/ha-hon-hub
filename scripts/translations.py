@@ -148,6 +148,8 @@ TEXTS = {
     "entity.sensor.error_code.name": ("Error code", "Codice errore"),
     "entity.sensor.tabs.name": ("Tablets left", "Pastiglie rimaste"),
     "entity.sensor.zone_power.name": ("Zone {zone} power", "Zona {zone} potenza"),
+    "entity.sensor.zone_temperature.name": ("Zone {zone} temperature", "Zona {zone} temperatura"),
+    "entity.sensor.raw_parameters.name": ("Raw parameters", "Parametri grezzi"),
 
     "entity.binary_sensor.connected.name": ("Connection", "Connessione"),
     "entity.binary_sensor.remote_control.name": ("Remote control", "Controllo remoto"),

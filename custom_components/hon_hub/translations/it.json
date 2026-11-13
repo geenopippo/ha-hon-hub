@@ -148,6 +148,12 @@
       "zone_power": {
         "name": "Zona {zone} potenza"
       },
+      "zone_temperature": {
+        "name": "Zona {zone} temperatura"
+      },
+      "raw_parameters": {
+        "name": "Parametri grezzi"
+      },
       "filter_cleaning": {
         "name": "Pulizia filtro: cicli rimanenti",
         "unit_of_measurement": "cicli"

@@ -599,13 +599,26 @@ def test_hob_zones():
     a = appliance("ih_654")
     assert a.is_hob and a.zones == 4 and a.status == "offline"       # the fixture hob is switched off
     a.apply_presence(True)
-    assert a.status == "off" and a.zone(1) == {"on": False, "power": 0, "pan": False, "hot": False, "timer": 0}
+    assert a.status == "off" and a.zone(1) == {"on": False, "power": 0, "pan": False, "hot": False, "temperature": 0.0, "timer": 0}
     a.apply_live({"onOffStatusZ2": "1", "powerZ2": "7", "panStatusZ2": "1", "hotStatusZ2": "1",
                   "remainingTimeHHZ2": "1", "remainingTimeMMZ2": "5"})
-    assert a.status == "on" and a.zone(2) == {"on": True, "power": 7, "pan": True, "hot": True, "timer": 65}
+    assert a.status == "on" and a.zone(2) == {"on": True, "power": 7, "pan": True, "hot": True, "temperature": 0.0, "timer": 65}
     a.apply_presence(False)                                  # switched off: no stale "zone on" in Home Assistant
     assert a.status == "offline" and a.zone(2)["on"] is False and a.zone(2)["power"] == 0 and a.zone(2)["hot"] is None
     assert a.counters == [] and a.maintenance_due is None and a.settings[0]["key"] == "powerManagement"
+
+
+def test_raw_parameters_for_templates():
+    a = appliance("dw_12658")
+    raw = a.raw()
+    assert raw["machMode"] == "2" and raw["prPhase"] == "1" and raw["hon_connected"] is True
+    assert raw["hon_last_program"] == "hygiene" and raw["hon_activity_program"] == "hygiene"
+    hob = appliance("ih_654")
+    hob.apply_presence(True)
+    hob.apply_live({"tempZ2": "180"})
+    assert hob.zone(2)["temperature"] == 180.0 and hob.raw()["tempZ2"] == "180"
+    hob.apply_presence(False)
+    assert hob.zone(2)["temperature"] is None and hob.raw()["hon_connected"] is False
 
 
 def test_dishwasher_maintenance():

@@ -20,7 +20,8 @@
       "drum_cleaning": {"default": "mdi:washing-machine-alert"},
       "drawer_cleaning": {"default": "mdi:tray"},
       "spray_arms_cleaning": {"default": "mdi:sprinkler-variant"},
-      "zone_power": {"default": "mdi:circle-slice-8"}
+      "zone_power": {"default": "mdi:circle-slice-8"},
+      "raw_parameters": {"default": "mdi:code-json"}
     },
     "binary_sensor": {
       "remote_control": {"default": "mdi:remote", "state": {"off": "mdi:remote-off"}},

@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription, SensorStateClass
-from homeassistant.const import (REVOLUTIONS_PER_MINUTE, EntityCategory, UnitOfEnergy, UnitOfTemperature, UnitOfTime,
-                                 UnitOfVolume)
+from homeassistant.const import (MATCH_ALL, REVOLUTIONS_PER_MINUTE, EntityCategory, UnitOfEnergy, UnitOfTemperature,
+                                 UnitOfTime, UnitOfVolume)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -90,6 +90,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: HonConfigEntry, async_ad
         entities += [HonSensor(coordinator, a, d) for d in SENSORS if d.exists(a)]
         entities += [HonCounterSensor(coordinator, a, name) for name in a.counters if name in COUNTER_KEYS]
         entities += [HonZoneSensor(coordinator, a, z) for z in range(1, a.zones + 1)]
+        entities += [HonZoneTemperature(coordinator, a, z) for z in range(1, a.zones + 1) if f"tempZ{z}" in a.params]
+        entities.append(HonRawSensor(coordinator, a))
     async_add_entities(entities)
 
 
@@ -154,3 +156,43 @@ class HonZoneSensor(HonEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         z = self.appliance.zone(self._zone)
         return {"on": z["on"], "pan_detected": z["pan"], "timer_minutes": z["timer"]}
+
+
+class HonZoneTemperature(HonEntity, SensorEntity):
+    """Temperature that the hob reports for one zone."""
+
+    _attr_translation_key = "zone_temperature"
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: HonCoordinator, appliance: Appliance, zone: int) -> None:
+        super().__init__(coordinator, appliance, f"zone_{zone}_temperature")
+        self._zone = zone
+        self._attr_translation_placeholders = {"zone": str(zone)}
+
+    @property
+    def native_value(self) -> float | None:
+        return self.appliance.zone(self._zone)["temperature"]
+
+
+class HonRawSensor(HonEntity, SensorEntity):
+    """Every parameter as hOn reports it, as attributes: for templates that need the raw codes.
+
+    Disabled by default. The attributes change all the time and are kept out of the recorder."""
+
+    _attr_translation_key = "raw_parameters"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _unrecorded_attributes = frozenset({MATCH_ALL})
+
+    def __init__(self, coordinator: HonCoordinator, appliance: Appliance) -> None:
+        super().__init__(coordinator, appliance, "raw_parameters")
+
+    @property
+    def native_value(self) -> int:
+        return len(self.appliance.params)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self.appliance.raw()
