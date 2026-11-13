@@ -57,7 +57,7 @@ class Appliance:
     def __init__(self, info: dict) -> None:
         self.info = info
         self.commands: dict = {}
-        self.desc: dict = {"programs": [], "settings": None, "simple": []}
+        self.desc: dict = {"programs": [], "hidden": [], "settings": None, "simple": []}
         self.connected: bool | None = None
         self.activity: dict = {}             # current activity of the cloud (program started from an app)
         self.last_command: dict = {}         # last command received by the cloud
@@ -125,7 +125,7 @@ class Appliance:
     def set_commands(self, commands: dict, i18n: dict | None = None) -> None:
         self.commands = commands or {}
         self.desc = model.describe(self.info, self.commands, i18n or {})
-        self._by_key = {p["key"].upper(): p for p in self.desc["programs"]}
+        self._by_key = {p["key"].upper(): p for p in (*self.hidden_programs, *self.programs)}
         self._labels = self._make_labels()
         if self.draft_key and self.draft_key.upper() not in self._by_key:
             self.draft_key, self.draft_values, self._draft_defs = "", {}, {}
@@ -265,13 +265,24 @@ class Appliance:
     # ── programs ─────────────────────────────────────────────────────────────
     @property
     def programs(self) -> list[dict]:
+        """The programs the official app lists."""
         return self.desc.get("programs") or []
+
+    @property
+    def hidden_programs(self) -> list[dict]:
+        """The programs the app does not list (it starts them from its guided choices or by voice).
+
+        They are not offered in the program list here either, but the start_program action accepts them
+        by key or code, and they are recognised when they run."""
+        return self.desc.get("hidden") or []
 
     def program(self, key: str) -> dict | None:
         return self._by_key.get((key or "").upper())
 
     def find_program(self, text: str) -> dict | None:
-        """Program by key (PROGRAMS.X.Y), code (y) or name as shown in the app; case-insensitive."""
+        """Program by key (PROGRAMS.X.Y), code (y) or name as shown in the app; case-insensitive.
+
+        The listed programs win over the hidden ones with the same name."""
         wanted = (text or "").strip().lower()
         if not wanted:
             return None
@@ -282,6 +293,9 @@ class Appliance:
                 return p
         for label, p in self.program_labels().items():
             if wanted == label.lower():
+                return p
+        for p in self.hidden_programs:
+            if wanted in (p["id"].lower(), p["name"].lower()):
                 return p
         return None
 
@@ -313,22 +327,28 @@ class Appliance:
         code (cycle started from an app or from here) its name wins, otherwise it is the dial program.
         """
         code = self.params.get("prCode")
-        if code in (None, "", "0") or not self.programs:
+        if code in (None, "", "0") or not (self.programs or self.hidden_programs):
             return None
         position = self.params.get("prPosition")
-        same = [p for p in self.programs if str(p.get("prCode")) == str(code)]
-        if not same:
-            return None
-        placed = [p for p in same if str(p["fixed"].get("prPosition")) == str(position)] or same
+
+        def placed(programs: list[dict]) -> list[dict]:
+            same = [p for p in programs if str(p.get("prCode")) == str(code)]
+            return [p for p in same if str(p["fixed"].get("prPosition")) == str(position)] or same
+
+        listed = placed(self.programs)
         attrs = self.activity.get("attributes") if isinstance(self.activity.get("attributes"), dict) else {}
         ttl = to_int(self.activity.get("ttl"), 0) or 0
         if attrs.get("programName") and str(attrs.get("prCode")) == str(code) and (not ttl or ttl > time.time()):
             name = str(attrs["programName"]).upper()
-            for p in placed:
+            # a hidden program counts only when the cloud names it: by its code alone it would take the
+            # place of the dial program
+            for p in (*listed, *placed(self.hidden_programs)):
                 if name in (p["key"].upper(), p["id"].upper(), p["key"].upper().split(".")[-1]):
                     return p
-        dial = [p for p in placed if not p["id"].startswith("iot_")]
-        return (dial or placed)[0]
+        if not listed:
+            return None
+        dial = [p for p in listed if not p["id"].startswith("iot_")]
+        return (dial or listed)[0]
 
     def note_started(self, program: dict) -> None:
         """A start was sent from here: until the cloud tells its own version, this is the program running.

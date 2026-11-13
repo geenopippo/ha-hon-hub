@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/geenopippo/ha-hon-hub/issues",
   "loggers": ["custom_components.hon_hub"],
   "requirements": [],
-  "version": "1.1.0"
+  "version": "1.1.1"
 }

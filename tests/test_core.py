@@ -511,6 +511,34 @@ def test_programs_that_only_start_from_the_machine_are_not_offered():
     assert a.find_program(local["id"]) is local              # still known: it can be the one running
 
 
+def test_hidden_programs_start_by_code_but_are_not_listed():
+    """The app reaches some programs only from its guided choices: same here, by key or code."""
+    a = appliance("wd_209")
+    hidden = next(p for p in a.hidden_programs if p["id"] == "iot_dry_mixed_dry")
+    assert hidden not in a.programs and hidden not in a.program_labels().values()
+    assert a.find_program("iot_dry_mixed_dry") is hidden and a.find_program(hidden["key"].lower()) is hidden
+    assert a.program(hidden["key"]) is hidden
+    built = model.build_start(a.commands, hidden["key"], {})
+    assert built["program_name"] == hidden["key"] and built["parameters"]["prCode"] == str(hidden["prCode"])
+    # a listed program with the same name wins over a hidden one
+    listed = a.programs[0]
+    hidden["name"] = listed["name"]
+    assert a.find_program(listed["name"]) is listed
+
+
+def test_hidden_program_is_named_only_when_the_cloud_names_it():
+    a = appliance("wd_209")
+    hidden = next(p for p in a.hidden_programs if p["id"] == "iot_dry_mixed_dry")
+    a.activity = {}
+    a.apply_live({"prCode": str(hidden["prCode"]), "prPosition": str(hidden["fixed"].get("prPosition")), "machMode": "2"})
+    by_code = a.current_program
+    assert by_code is None or by_code in a.programs          # by its code alone: never the hidden one
+    a.note_started(hidden)
+    assert a.current_program is hidden and a.program_name == hidden["name"]
+    a.activity["ttl"] = int(time.time()) - 5                 # old activity: ignored
+    assert a.current_program is by_code
+
+
 def test_find_program_and_labels():
     a = appliance("dw_12658")
     assert a.find_program("eco")["key"] == "PROGRAMS.DW.ECO"

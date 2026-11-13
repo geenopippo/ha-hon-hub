@@ -30,6 +30,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: HonConf
             "programs": [{"key": p["key"], "name": p["name"], "prCode": p.get("prCode"),
                           "prPosition": p["fixed"].get("prPosition"), "family": p["family"], "remote": p["remote"],
                           "options": [d["key"] for d in p["params"]], "rules": len(p["rules"])} for p in a.programs],
+            "hidden_programs": [{"key": p["key"], "prCode": p.get("prCode"), "family": p["family"],
+                                 "remote": p["remote"]} for p in a.hidden_programs],
             "options": options, "settings": a.settings, "simple_commands": a.simple_commands,
             "draft": {"program": a.draft_key, "values": a.draft_values}, "live_messages": a.live_messages,
         })

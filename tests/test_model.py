@@ -98,7 +98,10 @@ def test_hidden_maintenance_programs_are_kept():
     d = model.describe({}, cmds)
     ids = {p["id"]: p for p in d["programs"]}
     assert "dishwasher_care" in ids and ids["dishwasher_care"]["maintenance"]
-    assert "iot_voice_eco" not in ids          # hidden and not maintenance: dropped
+    assert "iot_voice_eco" not in ids          # hidden and not maintenance: not in the list...
+    hidden = {p["id"]: p for p in d["hidden"]}
+    assert hidden["iot_voice_eco"]["remote"] and not hidden["iot_voice_eco"]["maintenance"]     # ...but known
+    assert not set(hidden) & set(ids)
 
 
 def test_resettable_counters_match_official_app():

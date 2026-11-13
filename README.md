@@ -64,6 +64,10 @@ data:
 Con `validate_only: true` il comando viene preparato e controllato ma **non inviato**: la risposta mostra
 che cosa partirebbe. Utile per provare un'automazione senza far partire la macchina.
 
+L'azione accetta anche i programmi che l'app non mette in elenco perché li propone solo dalle sue scelte
+guidate o dai comandi vocali (per esempio `iot_wash_cotton_steam`): vanno indicati con il codice o con la
+chiave. Nell'elenco *Programma da avviare* restano quelli che mostra l'app.
+
 Per avviare da remoto la macchina deve essere accesa, collegata e con il **controllo remoto attivo** (si attiva
 dal suo pannello). Se non lo è, l'integrazione non invia nulla e lo dice.
 
@@ -120,7 +124,8 @@ requirements to install.
 
 - State, program, phase, remaining time and expected end, pushed as the machine reports them.
 - Program selection with its options as entities (they follow the rules of the program) and a start button;
-  pause, resume, stop; `hon_hub.start_program` action with a `validate_only` mode that sends nothing.
+  pause, resume, stop; `hon_hub.start_program` action with a `validate_only` mode that sends nothing. The action
+  also takes, by code or key, the programs the app only offers from its guided choices.
 - Maintenance counters with reset buttons, salt and rinse aid, tablets left; machine settings.
 - Induction hobs: power and residual heat per zone.
 - A cycle event entity (started, paused, resumed, finished, error) for automations; downloadable diagnostics.

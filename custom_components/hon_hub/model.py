@@ -119,7 +119,7 @@ def describe(appliance: dict, commands: dict, i18n: dict | None = None) -> dict:
     """Full description of programs, settings and simple commands."""
     i18n = i18n or {}
     options = commands.get("options") if isinstance(commands.get("options"), dict) else {}
-    out = {"programs": [], "settings": None, "simple": []}
+    out = {"programs": [], "hidden": [], "settings": None, "simple": []}
 
     start = commands.get("startProgram") or {}
     if _is_command(start):
@@ -133,14 +133,14 @@ def describe(appliance: dict, commands: dict, i18n: dict | None = None) -> dict:
         fam = (anc.get("programFamily") or {}).get("enumValues") or [] if isinstance(anc.get("programFamily"), dict) else []
         fam = [str(f).strip("[]") for f in fam]
         maint = any(f in ("maintenance", "diagnostic") for f in fam)
-        # hidden programs are dropped, except maintenance and diagnostic cycles,
-        # which the official app shows in its Maintenance section
-        if flag("remoteVisible") == "0" and not maint:
-            continue
+        # the programs the app does not list (it reaches them from its guided choices or by voice) are kept
+        # apart: not offered in the lists, but known by key and code. Maintenance and diagnostic cycles are
+        # listed even if hidden: the official app shows them in its Maintenance section
+        hidden = flag("remoteVisible") == "0" and not maint
         pid = key.split(".")[-1].lower()
         rules = _rules(anc, options)
         allp = _with_triggers(c, rules)
-        out["programs"].append({
+        out["hidden" if hidden else "programs"].append({
             "key": key, "id": pid,
             "name": i18n.get(key) or pid.replace("iot_", "").replace("_", " ").capitalize(),
             "desc": i18n.get(key + "_DESCRIPTION", ""),
@@ -153,6 +153,7 @@ def describe(appliance: dict, commands: dict, i18n: dict | None = None) -> dict:
             "prCode": c["params"].get("prCode", {}).get("value"),
         })
     out["programs"].sort(key=lambda p: p["name"].lower())
+    out["hidden"].sort(key=lambda p: p["name"].lower())
 
     settings = commands.get("settings") or {}
     if not _is_command(settings):
